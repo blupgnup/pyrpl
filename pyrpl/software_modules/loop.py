@@ -1,7 +1,6 @@
 """
 Defines a number of Loop modules to be used to perform periodically a task
 """
-
 import numpy as np
 import pyqtgraph as pg
 from ..modules import Module
@@ -10,7 +9,8 @@ from ..pyrpl_utils import time
 
 
 class Loop(Module):
-    def __init__(self, parent, name='loop', interval=0.01, autostart=True,
+    def __init__(self, parent, name='loop', interval=1.0,
+                 autostart=True,
                  loop_function=None, setup_function=None,
                  teardown_function=None, **kwargs):
         # parent is parent pyrpl module
@@ -70,10 +70,18 @@ class Loop(Module):
 
     def main_loop(self):
         try:
-            self.loop()
-        except TypeError:
-            # allows to pass instance functions of the parent module as arguments as well
-            self.loop(self.parent, self)
+            try:
+                self.loop()
+            except TypeError:
+                # allows to pass instance functions of the parent module as arguments as well
+                try:
+                    self.loop(self.parent, self)
+                except TypeError:
+                    self.loop(self.parent)
+        except BaseException as e:
+            # we do not want the loop to stop launching the next cycle (code
+            # below this) if there is an exception raised by the loop function)
+            self._logger.error("Error in main_loop of %s: %s", self.name, e)
         # increment counter
         self.n += 1
         if not self._ended:
@@ -82,6 +90,13 @@ class Loop(Module):
     def setup_loop(self):
         """ put your initialization routine here"""
         pass
+
+    def pause_loop(self):
+        self._ended = True
+
+    def start_loop(self):
+        self._ended = False
+        self.main_loop()
 
     def loop(self):
         # insert your loop function here
@@ -118,16 +133,33 @@ class PlotWindow(object):
     def __init__(self, title="plotwindow"):
         self.win = pg.GraphicsWindow(title=title)
         self.pw = self.win.addPlot()
-        self.curve_green = self.pw.plot(pen="g")
-        self.curve_red = self.pw.plot(pen="r")
+        self.curves = {}
         self.win.show()
         self.plot_start_time = time()
 
-    def append(self, green=None, red=None):
+    _defaultcolors = ['g', 'r', 'b', 'y', 'c', 'm', 'o', 'w']
+
+    def append(self, *args, **kwargs):
+        """
+        usage:
+            append(green=0.1, red=0.5, blue=0.21)
+        # former, now almost deprecated version:
+            append(0.5, 0.6)
+        """
+        for k in kwargs.keys():
+            v = kwargs.pop(k)
+            kwargs[k[0]] = v
+        i=0
+        for value in args:
+            while self._defaultcolors[i] in kwargs:
+                i += 1
+            kwargs[self._defaultcolors[i]] = value
         t = time()-self.plot_start_time
-        for curve, value in [(self.curve_green, green),
-                             (self.curve_red, red)]:
+        for color, value in kwargs.items():
             if value is not None:
+                if not color in self.curves:
+                    self.curves[color] = self.pw.plot(pen=color)
+                curve = self.curves[color]
                 x, y = curve.getData()
                 if x is None or y is None:
                     x, y = np.array([t]), np.array([value])
@@ -142,18 +174,29 @@ class PlotWindow(object):
 class PlotLoop(Loop):
     def __init__(self, *args, **kwargs):
         try:
-            plot = kwargs.pop("plot")
+            self.plot = kwargs.pop("plot")
         except KeyError:
-            plot = True
-        if plot:
-            self.plot = PlotWindow()
-            #self.win.setWindowTitle(self.name)
+            self.plot = True
+        try:
+            self.plotter = kwargs.pop("plotter")
+        except KeyError:
+            self.plotter = None
+        if self.plot and self.plotter is None:
+            self.plot = PlotWindow(title=self.name)
         super(PlotLoop, self).__init__(*args, **kwargs)
 
-
-    def plotappend(self, red=None, green=None):
-        self.plot.append(red=red, green=green)
+    def plotappend(self, *args, **kwargs):
+        if self.plot:
+            if self.plotter is not None:
+                setattr(self.parent, self.plotter, (args, kwargs))
+            else:
+                try:
+                    self.plot.append(**kwargs)
+                except BaseException as e:
+                    self._logger.error("Error occured during plotting in Loop %s: %s",
+                                       self.name, e)
 
     def _clear(self):
-        self.plot.close()
         super(PlotLoop, self)._clear()
+        if hasattr(self, 'plot') and hasattr(self.plot, 'close'):
+            self.plot.close()

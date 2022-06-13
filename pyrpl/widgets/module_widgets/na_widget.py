@@ -1,19 +1,53 @@
 """
-A widget fot the network analyzer
+The network analyzer records the coherent response of the signal at the port
+:code:`input` to a sinusoidal excitation of variable frequency sent to the
+output selected in :code:`output_direct`.
+
+.. note:: If :code:`output_direct='off'`, another module's input can be set
+          to :code:`networkanalyzer` to test its response to a frequency sweep.
+
+* :attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.amplitude`
+  sets the amplitude of the sinusoidal excitation in Volts.
+* :attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.start_freq`/:attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.stop_freq`
+  define the frequency range over which a transfer function is recorded.
+  Swapping the values of :code:`start_freq` and :code:`stop_freq` reverses the
+  direction of the frequency sweep. Setting :code:`stop_freq = start_freq`
+  enables the "zero-span" mode, where the coherent response at a constant
+  frequency is recorded as a function of time.
+* :attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.points`
+  defines the number of frequency points in the recorded transfer function.
+* :attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.rbw` is
+  the cutoff frequency of the low-pass filter after demodulation. Furthermore,
+  the time :math:`\\tau` spent to record each point is
+  :math:`\\tau=\\texttt{average_per_point} / \\texttt{rbw}`.
+* :attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.average_per_point`:
+  Each point is averaged inside the FPGA before being retrieved by the
+  client computer that runs PyRPL. You should increase this parameter or
+  decrease :code:`rbw` if the communication time between the Red Pitaya and
+  the client computer limits the acquisition speed.
+* :attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.acbandwidth`
+  is the cutoff frequency of a high-pass filter applied to the input before
+  demodulation. A setting of zero disables the high-pass filter.
+* :attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.logscale`
+  enables the use of a logarithmic scale for the frequency axis, resulting in
+  a logarithmic distribution of the frequency points as well.
+* :attr:`~pyrpl.software_modules.network_analyzer.NetworkAnalyzer.infer_open_loop_tf`
+  applies the transformation :math:`T \\rightarrow \\frac{T}{1+T}` to the displayed
+  transfer function to correct for the effect of a closed feedback loop
+  (not implemented at the moment).
 """
 
 from .base_module_widget import ModuleWidget
+from.acquisition_module_widget import AcquisitionModuleWidget
 
-from PyQt4 import QtCore, QtGui
+from qtpy import QtCore, QtWidgets
 import pyqtgraph as pg
 from time import time
 import numpy as np
 import sys
 
-APP = QtGui.QApplication.instance()
 
-
-class NaWidget(ModuleWidget):
+class NaWidget(AcquisitionModuleWidget):
     """
     Network Analyzer Tab.
     """
@@ -25,10 +59,11 @@ class NaWidget(ModuleWidget):
         """
         Sets up the gui
         """
-        self.main_layout = QtGui.QVBoxLayout()
+        #self.main_layout = QtWidgets.QVBoxLayout()
+        self.init_main_layout(orientation="vertical")
         self.init_attribute_layout()
-        self.button_layout = QtGui.QHBoxLayout()
-        self.setLayout(self.main_layout)
+        self.button_layout = QtWidgets.QHBoxLayout()
+        #self.setLayout(self.main_layout)
         self.setWindowTitle("NA")
         self.win = pg.GraphicsWindow(title="Magnitude")
 
@@ -41,13 +76,13 @@ class NaWidget(ModuleWidget):
         self.plot_item_phase = self.win_phase.addPlot(row=1, col=0,
                                                       title="Phase (deg)")
         self.plot_item_phase.setXLink(self.plot_item)
-        self.button_single = QtGui.QPushButton("Run single")
+        self.button_single = QtWidgets.QPushButton("Run single")
         self.button_single.my_label = "Single"
-        self.button_continuous = QtGui.QPushButton("Run continuous")
+        self.button_continuous = QtWidgets.QPushButton("Run continuous")
         self.button_continuous.my_label = "Continuous"
-        self.button_stop = QtGui.QPushButton('Stop')
+        self.button_stop = QtWidgets.QPushButton('Stop')
 
-        self.button_save = QtGui.QPushButton("Save curve")
+        self.button_save = QtWidgets.QPushButton("Save curve")
 
         self.chunks = [] #self.plot_item.plot(pen='y')
         self.chunks_phase = []
@@ -55,22 +90,23 @@ class NaWidget(ModuleWidget):
         self.main_layout.addWidget(self.win_phase)
 
         aws = self.attribute_widgets
-        self.attribute_layout.removeWidget(aws["avg"])
+        self.attribute_layout.removeWidget(aws["trace_average"])
         self.attribute_layout.removeWidget(aws["curve_name"])
 
-        self.button_layout.addWidget(aws["avg"])
-        self.button_layout.addWidget(aws["curve_name"])
+        #self.button_layout.addWidget(aws["trace_average"])
+        #self.button_layout.addWidget(aws["curve_name"])
 
-        self.button_layout.addWidget(self.button_single)
-        self.button_layout.addWidget(self.button_continuous)
-        self.button_layout.addWidget(self.button_stop)
-        self.button_layout.addWidget(self.button_save)
-        self.main_layout.addLayout(self.button_layout)
+        super(NaWidget, self).init_gui()
+        #self.button_layout.addWidget(self.button_single)
+        #self.button_layout.addWidget(self.button_continuous)
+        #self.button_layout.addWidget(self.button_stop)
+        #self.button_layout.addWidget(self.button_save)
+        #self.main_layout.addLayout(self.button_layout)
 
-        self.button_single.clicked.connect(self.run_single_clicked)
-        self.button_continuous.clicked.connect(self.run_continuous_clicked)
-        self.button_stop.clicked.connect(self.button_stop_clicked)
-        self.button_save.clicked.connect(self.save_clicked)
+        #self.button_single.clicked.connect(self.run_single_clicked)
+        #self.button_continuous.clicked.connect(self.run_continuous_clicked)
+        #self.button_stop.clicked.connect(self.button_stop_clicked)
+        #self.button_save.clicked.connect(self.save_clicked)
 
         self.arrow = pg.ArrowItem()
         self.arrow.setVisible(False)
@@ -80,17 +116,17 @@ class NaWidget(ModuleWidget):
         self.plot_item_phase.addItem(self.arrow_phase)
         self.last_updated_point = 0
         self.last_updated_time = 0
-        self.display_state(self.module.running_state)
+        #self.display_state(self.module.running_state)
+        self.update_running_buttons()
         self.update_period = self.starting_update_rate # also modified in clear_curve.
 
         # Not sure why the stretch factors in button_layout are not good by
         # default...
-        self.button_layout.setStretchFactor(self.button_single, 1)
-        self.button_layout.setStretchFactor(self.button_continuous, 1)
-        self.button_layout.setStretchFactor(self.button_stop, 1)
-        self.button_layout.setStretchFactor(self.button_save, 1)
-        #self.button_layout.setStretchFactor(self.run_avg_widget, 1)
-        #self.button_layout.setStretchFactor(self.curve_name_widget, 1)
+        #self.button_layout.setStretchFactor(self.button_single, 1)
+        #self.button_layout.setStretchFactor(self.button_continuous, 1)
+        #self.button_layout.setStretchFactor(self.button_stop, 1)
+        #self.button_layout.setStretchFactor(self.button_save, 1)
+        self.x_log_toggled() # Set the axis in logscale if it has to be
 
     def autoscale(self):
         """
@@ -131,8 +167,7 @@ class NaWidget(ModuleWidget):
         """
         if in run continuous, needs to redisplay the number of averages
         """
-        self.display_state(self.module.running_state) # display correct
-        # average number
+        self.update_current_average()
         self.update_point(self.module.points-1, force=True) # make sure all points in the scan are updated
 
     def set_benchmark_text(self, text):
@@ -140,7 +175,8 @@ class NaWidget(ModuleWidget):
 
     def update_point(self, index, force=False):
         """
-        To speed things up, the curves are plotted by chunks of self.CHUNK_SIZE points. All points between last_updated_point and
+        To speed things up, the curves are plotted by chunks of
+        self.CHUNK_SIZE points. All points between last_updated_point and
         index will be redrawn.
         """
         # APP.processEvents()  # Give hand back to the gui since timer intervals might be very short
@@ -187,7 +223,8 @@ class NaWidget(ModuleWidget):
     def update_attribute_by_name(self, name, new_value_list):
         super(NaWidget, self).update_attribute_by_name(name, new_value_list)
         if name == "running_state":
-            self.display_state(self.module.running_state)
+            #self.display_state(self.module.running_state)
+            self.update_running_buttons()
 
     def update_chunk(self, chunk_index):
         """
@@ -212,29 +249,29 @@ class NaWidget(ModuleWidget):
         self.chunks[chunk_index].setData(x, self._magnitude(data))
         self.chunks_phase[chunk_index].setData(x, self._phase(data))
 
-    def run_continuous_clicked(self):
-        """
-        launches a continuous run
-        """
-        if str(self.button_continuous.text()).startswith("Pause"):
-            self.module.pause()
-        else:
-            self.module.continuous()
+    #def run_continuous_clicked(self):
+    #    """
+    #    launches a continuous run
+    #    """
+    #    if str(self.button_continuous.text()).startswith("Pause"):
+    #        self.module.pause()
+    #    else:
+    #        self.module.continuous()
 
-    def run_single_clicked(self):
-        """
-        launches a single acquisition
-        """
-        if str(self.button_single.text()).startswith("Pause"):
-            self.module.pause()
-        else:
-            self.module.single_async()
+    #def run_single_clicked(self):
+    #    """
+    #    launches a single acquisition
+    #    """
+    #    if str(self.button_single.text()).startswith("Pause"):
+    #        self.module.pause()
+    #    else:
+    #        self.module.single_async()
 
-    def save_clicked(self):
-        """
-        Save the current curve.
-        """
-        self.module.save_curve()
+    #def save_clicked(self):
+    #    """
+    #    Save the current curve.
+    #    """
+    #    self.module.save_curve()
 
     def display_state(self, running_state):
         """
@@ -254,8 +291,7 @@ class NaWidget(ModuleWidget):
             self.button_single.setEnabled(False)
             self.button_single.setText("Run single")
             self.button_continuous.setEnabled(True)
-            self.button_continuous.setText("Pause (%i "
-                                            "averages)"%self.module.current_avg)
+            self.button_continuous.setText("Pause")
             return
         if running_state== "running_single":
             self.button_single.setEnabled(True)
@@ -264,8 +300,7 @@ class NaWidget(ModuleWidget):
             self.button_continuous.setText("Run continuous")
             return
         if running_state == "paused":
-            self.button_continuous.setText("Resume continuous (%i "
-                                            "averages)"%self.module.current_avg)
+            self.button_continuous.setText("Resume continuous")
             self.button_single.setText("Run single")
             self.button_continuous.setEnabled(True)
             self.button_single.setEnabled(False)
@@ -277,11 +312,11 @@ class NaWidget(ModuleWidget):
             self.button_single.setEnabled(True)
             return
 
-    def button_stop_clicked(self):
-        """
-        Going to stop will impose a setup_average before next run.
-        """
-        self.module.stop()
+    #def button_stop_clicked(self):
+    #    """
+    #    Going to stop will impose a setup_average before next run.
+    #    """
+    #    self.module.stop()
 
 
 class MyGraphicsWindow(pg.GraphicsWindow):

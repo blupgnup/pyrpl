@@ -2,6 +2,7 @@ from .interferometer import *
 from .fabryperot import *
 from .linear import *
 from .custom_lockbox_example import *
+from .pll import *
 
 # try to import user models if applicable
 import sys, os
@@ -14,7 +15,7 @@ try:
     for module in os.listdir(user_lockbox_dir):
         if module == '__init__.py' or module[-3:] != '.py':
             continue
-        usermodels.append(__import__(module[:-3], locals(), globals(), [], -1))
+        usermodels.append(__import__(module[:-3], locals(), globals(), [], 0))
         logger.debug("Custom user models from %s were successfully imported!"%module)
     del module
 except KeyError:

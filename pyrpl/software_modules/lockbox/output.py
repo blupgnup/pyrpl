@@ -64,7 +64,9 @@ class OutputSignal(Signal):
                       'analog_filter_cutoff',
                       'extra_module',
                       'extra_module_state',
-                      'desired_unity_gain_frequency']
+                      'desired_unity_gain_frequency',
+                      'max_voltage',
+                      'min_voltage']
     _setup_attributes = _gui_attributes + ['assisted_design', 'tf_curve',
                                            'tf_type']
     # main attributes
@@ -98,6 +100,13 @@ class OutputSignal(Signal):
     # internal state of the output
     current_state = SelectProperty(options=['lock', 'unlock', 'sweep'],
                                    default='unlock')
+    max_voltage = FloatProperty(default=1.0, min=-1.0, max=1.0,
+                                call_setup=True,
+                                doc="positive saturation voltage")
+    min_voltage = FloatProperty(default=-1.0,
+                                min=-1.0, max=1.0,
+                                call_setup=True,
+                                doc="negative saturation voltage")
 
     def signal(self):
         return self.pid.name
@@ -117,8 +126,8 @@ class OutputSignal(Signal):
         True: if the output has saturated
         False: otherwise
         """
-        ival, max, min = self.pid.ival, self.pid.max_voltage, \
-                         self.pid.min_voltage
+        ival, max, min = self.pid.ival, self.max_voltage, \
+                         self.min_voltage
         sample = getattr(self.pyrpl.rp.sampler, self.pid.name)
         # criterion for saturation: integrator value saturated
         # and current value (including pid) as well
@@ -128,8 +137,13 @@ class OutputSignal(Signal):
             return False
 
     def _setup_pid_output(self):
+        self.pid.max_voltage = self.max_voltage
+        self.pid.min_voltage = self.min_voltage
         if self.output_channel.startswith('out'):
             self.pid.output_direct = self.output_channel
+            for pwm in [self.pyrpl.rp.pwm0, self.pyrpl.rp.pwm1]:
+                if pwm.input == self.pid.name:
+                    pwm.input = 'off'
         elif self.output_channel.startswith('pwm'):
             self.pid.output_direct = 'off'
             pwm = getattr(self.pyrpl.rp, self.output_channel)
@@ -153,15 +167,18 @@ class OutputSignal(Signal):
         if reset_offset:
             self.pid.ival = 0
         self.current_state = 'unlock'
+        # benefit from the occasion and do proper initialization
+        self._setup_pid_output()
 
     def sweep(self):
         self.unlock(reset_offset=True)
-        self._setup_pid_output()
         self.pid.input = self.lockbox.asg
         self.lockbox.asg.setup(amplitude=self.sweep_amplitude,
                                offset=self.sweep_offset,
                                frequency=self.sweep_frequency,
-                               waveform=self.sweep_waveform)
+                               waveform=self.sweep_waveform,
+                               trigger_source='immediately',
+                               cycles_per_burst=0)
         self.pid.setpoint = 0.
         self.pid.p = 1.
         self.current_state = 'sweep'
@@ -176,7 +193,7 @@ class OutputSignal(Signal):
         self._lock_gain_factor = self._lock_gain_factor if gain_factor is None else gain_factor
         # Parameter 'offset' is not internally stored because another call to 'lock()'
         # shouldnt reset the offset by default as this would un-lock an existing lock
-        self._setup_pid_output()  # optional to ensure that pid output is properly set
+        #self._setup_pid_output()  # optional to ensure that pid output is properly set
         self._setup_pid_lock(input=self._lock_input,
                              setpoint=self._lock_setpoint,
                              offset=offset,
@@ -197,8 +214,7 @@ class OutputSignal(Signal):
         # the input (error signal) with a setpoint-dependent slope.
         # 1) model the output: dc_gain converted into units of setpoint_unit_per_V
         output_unit = self.unit.split('/')[0]
-        external_loop_gain = self.dc_gain\
-                             * self.lockbox._unit_in_setpoint_unit(output_unit)
+        external_loop_gain = self.dc_gain * self.lockbox._unit_in_setpoint_unit(output_unit)
         # 2) model the input: slope comes in units of V_per_setpoint_unit,
         # which cancels previous unit and we end up with a dimensionless ext. gain.
         external_loop_gain *= input.expected_slope(setpoint)
@@ -208,15 +224,21 @@ class OutputSignal(Signal):
             self._logger.warning("External loop gain for output %s is zero. "
                                  "Skipping pid lock for this step. ",
                                  self.name)
-        else:
-            # write values to pid module
-            self.pid.setpoint = input.expected_signal(setpoint)
+            if offset is not None:
+                self.pid.ival = offset
+        else:  # write values to pid module
+            # set gains to zero before switching setpoint and input,
+            # to avoid huge gains while transiting
+            self.pid.p = 0
+            self.pid.i = 0
+            self.pid.setpoint = input.expected_signal(setpoint) + input.calibration_data._analog_offset
+            self.pid.input = input.signal()
+            # set offset if applicable
+            if offset is not None:
+                self.pid.ival = offset
+            # set gains
             self.pid.p = self.p / external_loop_gain * gain_factor
             self.pid.i = self.i / external_loop_gain * gain_factor
-            self.pid.input = input.signal()
-        # offset is the last thing that is modified to guarantee the offset setting with the gains
-        if offset is not None:
-            self.pid.ival = offset
 
     def _setup_offset(self, offset):
         self.pid.ival = offset

@@ -43,18 +43,21 @@ pyrpl/fpga/red_pitaya.prm
 pyrpl/fpga/*.dmp
 pyrpl/.idea
 
+# Vivado project-related stuff
+pyrpl/fpga/project/.*
+pyrpl/fpga/project/
+*.jou
+
 #fpga-related
 fpga/out/
 fpga/sdk/
 fpga/ip/
 
-
-
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
-*.spec
+#*.spec
 
 # Installer logs
 pip-log.txt
@@ -65,12 +68,14 @@ htmlcov/
 .tox/
 .coverage
 .coverage.*
+cover/*
 .cache
 nosetests.xml
 coverage.xml
 *,cover
 .hypothesis/
 xunit.xml
+unit_tests.xml
 
 # Translations
 *.mo
@@ -80,7 +85,12 @@ xunit.xml
 *.log
 
 # Sphinx documentation
-!doc/sphinx/build/html
+#!doc/sphinx/build/html
+# Sphinx documentation
+_build
+_static
+_templates
+
 
 # PyBuilder
 target/
@@ -90,7 +100,8 @@ target/
 
 
 #notebooks
-doc/my_notebooks/
+!docs/source/*
+!docs/source/developer_guide/dist
 
 *.pydevproject
 *.project
@@ -106,9 +117,17 @@ pyrpl/config/user_config/*.yml
 pyrpl/config/user_config/*.bak
 pyrpl/config/user_config
 
-
 #test files made by Xueshi
 test_import.py
 run.py 
 rpiq_gui.py
 rpiq.ui
+
+# distribution stuff
+README.rst
+scripts/dist/
+scripts/build/
+scripts/__init__.py
+scripts/run_pyrpl.spec
+scripts/pyrpl.spec
+cover/index.html

@@ -20,6 +20,12 @@
 import numpy as np
 import socket
 import logging
+try:
+    raise  # disable sound output for now
+    from pysine import sine  # for debugging read/write calls
+except:
+    def sine(frequency, duration):
+        print("Called sine(frequency=%f, duration=%f)" % (frequency, duration))
 from .hardware_modules.dsp import dsp_addr_base, DSP_INPUTS
 from .pyrpl_utils import time
 
@@ -46,6 +52,8 @@ class MonitorClient(object):
         self._restartserver = restartserver
         self._hostname = hostname
         self._port = port
+        self._read_counter = 0 # For debugging and unittests
+        self._write_counter = 0 # For debugging and unittests
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # try to connect at least 5 times
         for i in range(5):
@@ -84,9 +92,15 @@ class MonitorClient(object):
         
     # the public methods to use which will recover from connection problems
     def reads(self, addr, length):
+        self._read_counter+=1
+        if hasattr(self, '_sound_debug') and self._sound_debug:
+            sine(440, 0.05)
         return self.try_n_times(self._reads, addr, length)
 
     def writes(self, addr, values):
+        self._write_counter += 1
+        if hasattr(self, '_sound_debug') and self._sound_debug:
+            sine(880, 0.05)
         return self.try_n_times(self._writes, addr, values)
     
     # the actual code
@@ -163,7 +177,7 @@ class MonitorClient(object):
             restartserver=self._restartserver)
 
 
-class DummyClient(object):
+class DummyClient(object):  # pragma: no cover
     """Class for unitary tests without RedPitaya hardware available"""
     class fpgadict(dict):
         def __missing__(self, key):
@@ -216,6 +230,8 @@ class DummyClient(object):
                     return 16
                 elif offset == 0x220:  # filterstages
                     return 1
+                elif offset == 0x108:  # overflow
+                    return 0
             elif module.startswith('iq'):
                 if offset == 0x220:  # filterstages
                     return 1
@@ -244,7 +260,7 @@ class DummyClient(object):
             val.append(self.read_fpgamemory(addr+0x4*i))
         return np.array(val, dtype=np.uint32)
     
-    def writes(self, addr, values):
+    def writes(self, addr, values): # pragma: no-cover
         for i, v in enumerate(values):
             self.fpgamemory[str(addr+0x4*i)]=v
     

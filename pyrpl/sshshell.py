@@ -23,7 +23,7 @@ from scp import SCPClient
 import logging
 
 
-class SSHshell(object):
+class SshShell(object):
     """ This is a wrapper around paramiko.SSHClient and scp.SCPClient
     I provides a ssh connection with the ability to transfer files over it"""
     def __init__(
@@ -33,8 +33,9 @@ class SSHshell(object):
             password='root',
             delay=0.05, 
             timeout=3,
-            sshport=22):
-        self.logger = logging.getLogger(name=__name__)
+            sshport=22,
+            shell=True):
+        self._logger = logging.getLogger(name=__name__)
         self.delay = delay
         self.apprunning = False
         self.hostname = hostname
@@ -50,10 +51,10 @@ class SSHshell(object):
             password=self.password,
             port=self.sshport,
             timeout=timeout)
-        self.channel = self.ssh.invoke_shell()
+        if shell:
+            self.channel = self.ssh.invoke_shell()
         self.startscp()
-        # self.sleep(0.1)
-   
+
     def startscp(self):
         self.scp = SCPClient(self.ssh.get_transport())
 
@@ -76,7 +77,7 @@ class SSHshell(object):
             sumstring += string
             if not string:
                 break
-        self.logger.debug(sumstring)
+        self._logger.debug(sumstring)
         return sumstring
 
     def askraw(self, question=""):
@@ -107,3 +108,28 @@ class SSHshell(object):
         self.endapp()
         self.ask("shutdown now")
         self.__del__()
+
+    def get_mac_addresses(self):
+        """
+        returns all MAC addresses of the SSH device.
+        """
+        self.ask()  # empty the shell before asking something
+        macs = list()
+        nextgood = False
+        for token in self.ask('ifconfig | grep HWaddr').split():
+            if nextgood and len(token.split(':'))==6:
+                macs.append(token)
+            if token == 'HWaddr':
+                nextgood = True
+            else:
+                nextgood = False
+        if macs == []:  # problem on more recent redpitaya os
+            nextgood = False
+            for token in self.ask('ip address').split():
+                if nextgood and len(token.split(':'))==6:
+                    macs.append(token)
+                if token == 'link/ether':
+                    nextgood = True
+                else:
+                    nextgood = False
+        return macs

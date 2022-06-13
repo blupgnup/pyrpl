@@ -4,35 +4,21 @@ import logging
 logger = logging.getLogger(__file__)
 from collections import OrderedDict, Counter
 
-# global variable that tells whether QT is available - should be deprecated since we have a hard dependence on QT
-QT_EXIST = True
-try:
-    from PyQt4 import QtCore, QtGui
-except ImportError:
-    QT_EXIST = False
-if QT_EXIST:
-    APP = QtGui.QApplication.instance()
 
+def isnotebook():
+    """ returns True if Jupyter notebook is runnung """
+    # from https://stackoverflow.com/questions/15411967/how-can-i-check-if-code-is-executed-in-the-ipython-notebook
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False      # Probably standard Python interpreter
 
-#def sleep(time_s):
-#    """
-#    If PyQt4 is installed on the machine,
-#    calls processEvents regularly to make sure
-#     the GUI doesn't freeze.
-
-#     This function should be used everywhere in the
-#     project in place of "time.sleep"
-#    """
-#    # QTimer-based sleep operation is not to be used for now
-#    if False: #QT_EXIST and APP is not None:
-#        timer = QtCore.QTimer()
-#        timer.setSingleShot(True)
-#        timer.setInterval(1000*time_s)
-#        timer.start()
-#        while(timer.isActive()):
-#            APP.processEvents()
-#    else:
-#        time.sleep(time_s)
 
 def time():
     """ returns the time. used instead of time.time for rapid portability"""
@@ -90,7 +76,8 @@ def recursive_getattr(root, path):
     """ returns root.path (i.e. root.attr1.attr2) """
     attribute = root
     for name in path.split('.'):
-        attribute = getattr(attribute, name)
+        if name != "":
+            attribute = getattr(attribute, name)
     return attribute
 
 
@@ -117,6 +104,19 @@ def setloglevel(level='info', loggername='pyrpl'):
         pass
     else:
         logging.getLogger(name=loggername).setLevel(level)
+
+
+class DuplicateFilter(logging.Filter):
+    """
+    Prevent multiple repeated logging message from polluting the console
+    """
+    def filter(self, record):
+        # add other fields if you need more granular comparison, depends on your app
+        current_log = (record.module, record.levelno, record.msg)
+        if current_log != getattr(self, "last_log", None):
+            self.last_log = current_log
+            return True
+        return False
 
 
 def sorted_dict(dict_to_sort=None, sort_by_values=True, **kwargs):

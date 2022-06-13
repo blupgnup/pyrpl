@@ -1,19 +1,52 @@
 """
-ModuleWidgets's hierarchy is parallel to that of Modules.
-Each Module instance can have a widget created by calling create_widget.
-To use a different class of Widget than the preset (for instance subclass it), the attribute ModuleClass.WidgetClass
-can be changed before calling create_widget()
+The basic functionality of all module widgets are inherited from the base
+class :class:`.ModuleWidget`.
+
+A module widget is delimited by a dashed-line (a QGroupBox). The following
+menu is available on the top part of each ModuleWidget, directly behind the
+name of the module (e.g. :code:`pid0`, :code:`pid1`, ...). Right click on
+the item (e.g. :code:`.:Load:.`, :code:`.:Save:.`, ...) to access the associated
+submenu:
+
+* :code:`.:Load:.` Loads the state of the module from a list of previously saved states.
+* :code:`.:Save:.` Saves the current state under a given state name.
+* :code:`.:Erase:.` Erases one of the previously saved states.
+* :code:`.:Edit:.` Opens a text window to edit the yml code of a state.
+* :code:`.:Hide/Show:.` Hides or shows the content of the module widget.
+
+Inside the module widget, different attribute values can be manipulated using
+the shown sub-widgets (e.g. :code:`input`, :code:`setpoint`, :code:`max_voltage`, ...). The
+modifications will take effect immediately. Only the module state
+:code:`<current state>` is affected by these changes. Saving the state under
+a different name only preserves the state at the moment of saving for later
+retrieval.
+
+At the next startup with the same config file, the :code:<current state> of
+all modules is loaded.
+
+If a module-widget is grayed out completely, it has been reserved by another,
+higher-level module whose name appears in parentheses after the name of the
+module (e.g. :code:`pid2 (output1)` means that the module :code:`pid2` is
+being used by the module :code:`output1`, which is actually a submodule of the
+:code:`lockbox` module). You can right-click anywhere on the grayed out
+widget and click on "Free" to override that reservation and use the module
+for your own purposes.
+
+.. warning:: If you override a module reservation, the module in parenthesis
+             might stop to function properly. A better practice is to identify
+             the top-level module responsible for the reservation, remove its
+             name from the list in your configuration file (located at
+             /HOME/pyrpl_user_dir/config/<string_shown_in_top_bar_of_the_gui>.yml)
+             and restart PyRPL with that configuration.
 """
-from PyQt4 import QtCore, QtGui
+from qtpy import QtCore, QtWidgets
 from collections import OrderedDict
 import functools
 import logging
-from ...widgets.yml_editor import YmlEditor
-
-APP = QtGui.QApplication.instance()
+from ..yml_editor import YmlEditor
 
 
-class MyMenuLabel(QtGui.QLabel):
+class MyMenuLabel(QtWidgets.QLabel):
     """
     A label on top of the menu widget that is able to display save or load menu.
     """
@@ -23,10 +56,10 @@ class MyMenuLabel(QtGui.QLabel):
         super(MyMenuLabel, self).__init__(self.text, module_widget)
 
     def get_menu(self):
-        menu = QtGui.QMenu(self)
+        menu = QtWidgets.QMenu(self)
         self.actions = []
         for state in self.module.states:
-            action = QtGui.QAction(state, self)
+            action = QtWidgets.QAction(state, self)
             self.actions.append(action)
             action.triggered.connect(functools.partial(self.func, state))
             menu.addAction(action)
@@ -34,7 +67,8 @@ class MyMenuLabel(QtGui.QLabel):
 
     def contextMenuEvent(self, event):
         menu = self.get_menu()
-        menu.exec_(event.globalPos())
+        if menu is not None:
+            menu.exec_(event.globalPos())
 
 
 class LoadLabel(MyMenuLabel):
@@ -60,13 +94,13 @@ class SaveLabel(MyMenuLabel):
 
     def get_menu(self):
         menu = super(SaveLabel, self).get_menu()
-        action_new = QtGui.QAction('<New...>', self)
+        action_new = QtWidgets.QAction('<New...>', self)
         action_new.triggered.connect(self.new_state)
         menu.addAction(action_new)
         return menu
 
     def new_state(self):
-        state, accept = QtGui.QInputDialog.getText(self, "Save %s "
+        state, accept = QtWidgets.QInputDialog.getText(self, "Save %s "
                             "state"%self.module.name, "Enter new state name:")
         state = str(state)
         if accept:
@@ -99,7 +133,7 @@ class EditLabel(MyMenuLabel):
 
     def get_menu(self):
         menu = super(EditLabel, self).get_menu()
-        action_current = QtGui.QAction('<Current>', self)
+        action_current = QtWidgets.QAction('<Current>', self)
         action_current.triggered.connect(functools.partial(self.func, None))
         others = menu.actions()
         if len(others)>0:
@@ -110,11 +144,29 @@ class EditLabel(MyMenuLabel):
         return menu
 
 
-class ReducedModuleWidget(QtGui.QGroupBox):
+class HideShowLabel(MyMenuLabel):
     """
-    Base class for a module Widget. In general, this is one of the DockWidget of the Pyrpl MainWindow.
+    "Hide/Show" label
     """
-    attribute_changed = QtCore.pyqtSignal()
+    text = " .:Hide/Show:. "
+
+    def get_menu(self):
+        if hasattr(self, 'hidden') and self.hidden:
+            self.module_widget.show_widget()
+            self.hidden = False
+        else:
+            self.module_widget.hide_widget()
+            self.hidden = True
+        return None
+
+
+class ReducedModuleWidget(QtWidgets.QGroupBox):
+    """
+    Base class for a module Widget.
+
+    In general, this is one of the DockWidget of the Pyrpl MainWindow.
+    """
+    attribute_changed = QtCore.Signal()
     title_pos = (12, 0)
 
     def __init__(self, name, module, parent=None):
@@ -131,13 +183,31 @@ class ReducedModuleWidget(QtGui.QGroupBox):
         self.change_ownership() # also sets the title
         self.module._signal_launcher.connect_widget(self)
 
+    def init_main_layout(self, orientation='horizontal'):
+        self.root_layout = QtWidgets.QHBoxLayout()
+        self.main_widget = QtWidgets.QWidget()
+        self.root_layout.addWidget(self.main_widget)
+        if orientation == "vertical":
+            self.main_layout = QtWidgets.QVBoxLayout()
+        else:
+            self.main_layout = QtWidgets.QHBoxLayout()
+        self.main_widget.setLayout(self.main_layout)
+        self.setLayout(self.root_layout)
+
+    def show_widget(self):
+        """ shows the widget after it has been hidden """
+        self.main_widget.show()
+
+    def hide_widget(self):
+        """ shows the widget after it has been hidden """
+        self.main_widget.hide()
+
     def init_gui(self):
         """
         To be overwritten in derived class
         :return:
         """
-        self.main_layout = QtGui.QHBoxLayout()
-        self.setLayout(self.main_layout)
+        self.init_main_layout()
         self.init_attribute_layout()
 
     def init_attribute_layout(self):
@@ -145,32 +215,48 @@ class ReducedModuleWidget(QtGui.QGroupBox):
         Automatically creates the gui properties for the register_widgets in register_names.
         :return:
         """
-        self.attribute_layout = QtGui.QHBoxLayout()
-        self.main_layout.addLayout(self.attribute_layout)
+        if '\n' in self.module._gui_attributes:
+            self.attributes_layout = QtWidgets.QVBoxLayout()
+            self.main_layout.addLayout(self.attributes_layout)
+            self.attribute_layout = QtWidgets.QHBoxLayout()
+            self.attributes_layout.addLayout(self.attribute_layout)
+        else:
+            self.attribute_layout = QtWidgets.QHBoxLayout()
+            self.main_layout.addLayout(self.attribute_layout)
         for attr_name in self.module._gui_attributes:
-            attribute_value = getattr(self.module, attr_name)  # needed for
-            # passing the instance to the descriptor
-            attribute = getattr(self.module.__class__, attr_name)
-            if callable(attribute):
-                # assume that attribute is a function
-                widget = QtGui.QPushButton(attr_name)
-                widget.clicked.connect(getattr(self.module, attr_name))
+            if attr_name == '\n':
+                self.attribute_layout = QtWidgets.QHBoxLayout()
+                self.attributes_layout.addLayout(self.attribute_layout)
             else:
-                # standard case: make attribute widget
-                widget = attribute._create_widget(self.module)
-                if widget is None:
-                    continue
-                widget.value_changed.connect(self.attribute_changed)
+                attribute_value = getattr(self.module, attr_name)  # needed for
+                # passing the instance to the descriptor
+                attribute = getattr(self.module.__class__, attr_name)
+                if callable(attribute):
+                    # assume that attribute is a function
+                    widget = QtWidgets.QPushButton(attr_name)
+                    widget.clicked.connect(getattr(self.module, attr_name))
+                else:
+                    # standard case: make attribute widget
+                    widget = attribute._create_widget(self.module)
+                    if widget is None:
+                        continue
+                    widget.value_changed.connect(self.attribute_changed)
             self.attribute_widgets[attr_name] = widget
             self.attribute_layout.addWidget(widget)
+        self.attribute_layout.addStretch(1)
 
     def update_attribute_by_name(self, name, new_value_list):
         """
         SLOT: don't change name unless you know what you are doing
-        Updates a specific attribute. New value is passed as a 1-element list to avoid typing problems in signal-slot.
+        Updates a specific attribute. New value is passed as a 1-element list
+        to avoid typing problems in signal-slot.
         """
         if name in self.module._gui_attributes:
-            self.attribute_widgets[str(name)].update_widget(new_value_list[0])
+            widget = self.attribute_widgets[str(name)]
+            try:  # try to propagate the change of attribute to the widget
+                widget.update_attribute_by_name(new_value_list)
+            except:  # directly set the widget value otherwise
+                self.attribute_widgets[str(name)].widget_value = new_value_list[0]
 
     def change_options(self, select_attribute_name, new_options):
         """
@@ -180,17 +266,28 @@ class ReducedModuleWidget(QtGui.QGroupBox):
         if select_attribute_name in self.module._gui_attributes:
             self.attribute_widgets[str(select_attribute_name)].change_options(new_options)
 
+    def refresh_filter_options(self, filter_attribute_name):
+        """
+        SLOT: don't change name unless you know what you are doing
+        New options should be displayed for some FilterProperty.
+        """
+        if filter_attribute_name in self.module._gui_attributes:
+            self.attribute_widgets[str(
+                filter_attribute_name)].refresh_options(self.module)
+
     def change_ownership(self):
         """
         SLOT: don't change name unless you know what you are doing
         Display the new ownership
         """
+        #name = self.module.pyrpl.name + " - " + self.module.name
+        name = self.module.name
         if self.module.owner is not None:
             self.setEnabled(False)
-            self.set_title(self.module.name + ' (' + self.module.owner + ')')
+            self.set_title(name + ' (' + self.module.owner + ')')
         else:
             self.setEnabled(True)
-            self.set_title(self.module.name)
+            self.set_title(name)
 
     def set_title(self, title):
         return self.setTitle(str(title))
@@ -236,9 +333,12 @@ class ModuleWidget(ReducedModuleWidget):
                                  self.save_label.pos().x(), self.title_pos[1])
             self.edit_label.move(self.erase_label.width() +
                                  self.erase_label.pos().x(), self.title_pos[1])
+            self.hideshow_label.move(self.edit_label.width() +
+                                     self.edit_label.pos().x(),
+                                     self.title_pos[1])
 
     def create_title_bar(self):
-        self.title_label = QtGui.QLabel("yo", parent=self)
+        self.title_label = QtWidgets.QLabel("yo", parent=self)
          # title should be at the top-left corner of the widget
         self.load_label = LoadLabel(self)
         self.load_label.adjustSize()
@@ -251,6 +351,9 @@ class ModuleWidget(ReducedModuleWidget):
 
         self.edit_label = EditLabel(self)
         self.edit_label.adjustSize()
+
+        self.hideshow_label = HideShowLabel(self)
+        self.hideshow_label.adjustSize()
 
         # self.setStyleSheet("ModuleWidget{border: 1px dashed gray;color: black;}")
         self.setStyleSheet("ModuleWidget{margin: 0.1em; margin-top:0.6em; border: 1 dotted gray;border-radius:5}")

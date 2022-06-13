@@ -287,6 +287,59 @@ def bodeplot(data, xlog=False):
 
 
 class IirFilter(object):
+    """
+    Computes coefficients and predicts transfer functions of an IIR filter.
+
+    Parameters
+    ----------
+    sys: (zeros, poles, gain)
+        zeros: list of complex zeros
+        poles: list of complex poles
+        gain:  DC-gain
+
+        zeros/poles with nonzero imaginary part should come in complex
+        conjugate pairs, otherwise the conjugate zero/pole will
+        automatically be added. After this, the number of poles should
+        exceed the number of zeros at least by one, otherwise a real pole
+        near the Nyquist frequency will automatically be added until there
+        are more poles than zeros.
+
+    loops: int or None
+        the number of FPGA cycles per filter sample. None tries to
+        automatically find the value leading to the highest possible
+        sampling frequency. If the numerical precision of the filter
+        coefficients in the FPGA is the limiting, manually setting a higher
+        value of loops may improve the filter performance.
+
+    dt: float
+        the FPGA clock frequency. Should be very close to 8e-9
+
+    minoops: int
+        minimum number of loops (constant of the FPGA design)
+
+    maxloops: int
+        maximum number of loops (constant of the FPGA design)
+
+    tol: float
+        tolerancee for matching conjugate pole/zero pairs. 1e-3 is okay.
+
+    intermediatereturn: str or None
+        if set to a valid option, the algorithm will stop at the specified
+        step and return an intermediate result for debugging. Valid options are
+
+
+    Returns
+    -------
+    coefficients
+
+    coefficients is an array of float arrays of length six, which hold the
+    filter coefficients to be passed directly to the iir module
+
+    :py:attr:`IirFilter.loops` of the :py:class:`IirFilter` instance is
+    automatically corrected to a number of loops compatible with the
+    implemented design.
+    """
+
     def __init__(self,
                  zeros,
                  poles,
@@ -329,24 +382,25 @@ class IirFilter(object):
         # it is easiest to just create a new object when the specification
         # has changed
         z, p, g = v
-        self = IirFilter(z, p, g,
-                         loops=self.loops,
-                         dt=self.dt,
-                         minloops=self.minloops,
-                         maxloops=self.maxloops,
-                         iirstages=self.iirstages,
-                         totalbits=self.totalbits,
-                         shiftbits=self.shiftbits,
-                         tol=self.tol,
-                         frequencies=self.frequencies,
-                         inputfilter=self.inputfilter,
-                         moduledelay=self.moduledelay)
-
+        self.__init__(z, p, g,
+                      loops=self.loops,
+                      dt=self.dt,
+                      minloops=self.minloops,
+                      maxloops=self.maxloops,
+                      iirstages=self.iirstages,
+                      totalbits=self.totalbits,
+                      shiftbits=self.shiftbits,
+                      tol=self.tol,
+                      frequencies=self.frequencies,
+                      inputfilter=self.inputfilter,
+                      moduledelay=self.moduledelay)
+        logger.warning("Setter of sys will soone be deprecated. Create a new "
+                       "instance of 'IirFilter' instead! ")
 
     @property
     def coefficients(self):
         """
-        Returns the coefficients of the IIR filter
+        Computes and returns the coefficients of the IIR filter set by :py:attr:`IirFilter.sys`.
 
         Parameters
         ----------
@@ -388,12 +442,14 @@ class IirFilter(object):
 
         Returns
         -------
-        coefficients, loops
+        coefficients
 
         coefficients is an array of float arrays of length six, which hold the
         filter coefficients to be passed directly to the iir module
 
-        loops is the number of loops for the implemented design.
+        :py:attr:`IirFilter.loops` of the :py:class:`IirFilter` instance is
+        automatically corrected to a number of loops compatible with the
+        implemented design.
         """
         if hasattr(self, '_coefficients'):
             return self._coefficients
@@ -516,7 +572,7 @@ class IirFilter(object):
                            "Minimum of %s is needed! ", loops, actloops)
             loops = actloops
         if loops > maxloops:
-            logger.warning("Maximum loops number is %s. This value "
+            logger.info("Maximum loops number is %s. This value "
                            "will be tried instead of specified value "
                            "%s.", maxloops, loops)
             loops = maxloops
@@ -526,9 +582,9 @@ class IirFilter(object):
         extrapole = -125e6 / loops / 2
         while len(zeros) > len(poles):
             poles.append(extrapole)
-            logger.warning("Specified IIR transfer function was not "
-                           "proper. Automatically added a pole at %s Hz.",
-                           extrapole)
+            logger.debug("Specified IIR transfer function was not "
+                         "proper. Automatically added a pole at %s Hz.",
+                         extrapole)
             # if more poles must be added, make sure we have no 2 poles at the
             # same frequency
             extrapole /= 2
@@ -724,9 +780,9 @@ class IirFilter(object):
         # realr = np.asarray((realr), dtype=np.float64)
 
         # implement coefficients - order is the one from specification of poles
-        # Some kind of sorting should be implemented but not clear which one.
-        # We will do this once problems with this procedure become visible
-        # in order to optimize the performance on an actual problem.
+        # The function minimize_delay will sort the sections such that the once
+        # with highest frequency polez/zeros will be computed last, thereby
+        # minimizing delay.
         for i in range(len(realp) // 2):
             p1, p2 = realp[2 * i], realp[2 * i + 1]
             r1, r2 = realr[2 * i], realr[2 * i + 1]
@@ -754,7 +810,6 @@ class IirFilter(object):
         """
         if coefficients is None:
             coefficients = self.coefficients
-        newcoefficients = list()
         ranks = list()
         for c in list(coefficients):
             # empty sections (numerator is 0) are ranked 0
@@ -782,7 +837,7 @@ class IirFilter(object):
             totalbits = self.totalbits
         if shiftbits is None:
             shiftbits = self.shiftbits
-        res = coeff * 0 + coeff
+        res = coeff * 0 + coeff  # weird way to make a copy of coeff
         for x in np.nditer(res, op_flags=['readwrite']):
             xr = np.round(x * 2 ** shiftbits)
             xmax = 2 ** (totalbits - 1)

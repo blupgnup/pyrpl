@@ -1,8 +1,58 @@
+"""
+Module managers are lightweight software modules that manage the access to
+hardware modules. For example, to use the scope:
+
+.. code:: python
+
+     HOSTNAME = "192.168.1.100"
+     from pyrpl import Pyrpl
+     p = Pyrpl(hostname=HOSTNAME)
+
+     # directly accessing the scope will not *reserve* it
+     scope = p.rp.scope
+     print(scope.owner)
+     scope.duration = 1.
+
+     # using the scope manager changes its ownership
+     with p.scopes.pop('username') as scope:
+        print(scope.owner)
+        scope.duration =0.01
+        print(scope.duration)
+     # The scope is freed (and reset to its previous state) after the with
+     # construct
+     print(scope.owner)
+     print(scope.duration)
+
+In case several identical modules are available on the FPGA, the first one (
+starting from the end of the list) is returned by the module manager:
+
+.. code:: python
+
+     HOSTNAME = "192.168.1.100"
+     from pyrpl import Pyrpl
+     p = Pyrpl(hostname=HOSTNAME)
+
+     # directly accessing the scope will not *reserve* it
+     pid2 = p.rp.pid2
+     pid2.owner = 'foo'
+
+     # Pid manager returns the first free pid module (in decreasing order)
+     with p.pids.pop('username') as pid:
+        print("pid0's owner: ", p.rp.pid0.owner)
+        print("pid1's owner: ", p.rp.pid1.owner)
+        print("pid2's owner: ", p.rp.pid2.owner)
+     print("pid0's owner: ", p.rp.pid0.owner)
+     print("pid1's owner: ", p.rp.pid1.owner)
+     print("pid2's owner: ", p.rp.pid2.owner)
+
+
+"""
+
 import logging
 logger = logging.getLogger(name=__name__)
 from ..widgets.module_widgets import ModuleManagerWidget, AsgManagerWidget, PidManagerWidget, IqManagerWidget, \
-    ScopeManagerWidget, IirManagerWidget
-from . import Module
+    ScopeManagerWidget, IirManagerWidget, PwmManagerWidget
+from ..modules import Module
 
 
 class InsufficientResourceError(ValueError):
@@ -43,7 +93,8 @@ class ModuleManager(Module):
         return [key for key in self.pyrpl.rp.modules.keys() if key[
                                 :-1]==self.name[:-1] or key==self.name[:-1]]
 
-    def _init_module(self):
+    def __init__(self, parent, name=None):
+        super(ModuleManager, self).__init__(parent, name=name)
         self.all_modules = [getattr(self.pyrpl.rp, name) for name in
                              self.hardware_module_names]
 
@@ -101,6 +152,8 @@ class ModuleManager(Module):
 class Asgs(ModuleManager):
     _widget_class = AsgManagerWidget
 
+class Pwms(ModuleManager):
+    _widget_class = PwmManagerWidget
 
 class Pids(ModuleManager):
     _widget_class = PidManagerWidget
@@ -108,7 +161,7 @@ class Pids(ModuleManager):
 
 class Iqs(ModuleManager):
     _widget_class = IqManagerWidget
-    _reserved_modules = [2] # iq2 is reserved for spectrum_analyzer
+    #_reserved_modules = [2] # iq2 is reserved for spectrum_analyzer
 
 
 class Scopes(ModuleManager):
@@ -123,3 +176,17 @@ class Iirs(ModuleManager):
     Only one iir, but it should be protected by the slave/owner mechanism.
     """
     _widget_class = IirManagerWidget
+
+
+class Trigs(ModuleManager):
+    """
+    Only one trig, but it should be protected by the slave/owner mechanism.
+    """
+    pass #_widget_class = IirManagerWidget
+
+
+class Hks(ModuleManager):
+    """
+    Only one trig, but it should be protected by the slave/owner mechanism.
+    """
+    pass #_widget_class = IirManagerWidget

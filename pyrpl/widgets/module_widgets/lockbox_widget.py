@@ -1,35 +1,118 @@
+# -*- coding: utf-8 -*-
 """
-The lockbox widget is composed of all the submodules widgets
+The Lockbox widget is used to produce a control signal to make a system's 
+output follow a specified setpoint. The system has to behave linearly around
+the setpoint, which is the case for many systems. The key parts of the widget are:
+
+*	General controls: "classname" selects a particular Lockbox class from the 
+	ones defined in lockbox/models folder, and will determine the overall 
+	behaviour of the lockbox. "Calibrate all inputs" performs a sweep and uses 
+	acquired data to calibrate parameters relevant for the selected Lockbox 
+	class. Before attempting to lock, it's recommendable, and sometimes even 
+	mandatory, to press this button.
+
+*	Stages: In many situations, it might be desirable to start locking the 
+	system with a certain set of locking parameters, and once this has been 
+	achieved, switch to a different set with possibly a different signal. 
+	For example, when locking a Fabry–Pérot interferometer, the first 
+	stage might be locking on the side of a transmission fringe, and later 
+	transferring to locking on-resonance with Pound-Drever-Hall input 
+	signal. It is possible to have as many stages as necessary, and they 
+	will be executed sequentially. 
+
+*	Stage settings: each stage has its own 
+	setpoint (whose units can be chosen in the general setting setpoint_unit)
+	and a gain factor (a premultiplier to account for desired gain differences
+	among different stages). In addition, based on the state of the "lock on"
+	tri-state checkbox, a stage can enable (checkbox checked), disable
+	(checkbox disabled) or leave unaffected  (checkbox greyed out) the
+	locking state when the stage is activated. The checkbox and field "reset
+	offset" determine whether the lockbox should reset its output to a certain
+	level when this stage is reached.
+
+*	Inputs and outputs: the PI parameters, together with limits, unit 
+	conversions and so on, are set in these tabs.
+	
+The lockbox module is completely customizable and allows to implement complex 
+locking logic by inheriting the "Lockbox" class and adding the new class into 
+lockbox/models. For example, below is an end-to-end locking scenario for a 
+Fabry–Pérot interferometer that uses the included "FabryPerot" class:
+
+You should start the lockbox module and first select the model class to 
+FabryPerot. Then continue to configure first the outputs and inputs, filling
+in the information as good as possible. Critical fields are:
+
+*	Wavelength (in SI units)
+*	Outputs: configure the piezo output in the folding menu of inputs/outputs:
+
+	* Select which output (out1 or out2) is the piezo connected to.
+	* If it is the default_sweep_output, set the sweep parameters
+	* Fill in the cutoff frequency if there is an analog low-pass filter behind 
+	  the redpitaya, and start with a unity-gain frequency of 10 Hz.
+	* Give an estimate on the displacement in meters per Volt or Hz per Volt 
+	  (the latter being the obtained resonance frequency shift per volt at the Red
+	  Pitaya output), you ensure that the specified unit-gain is the one that
+	  Red Pitaya is able to set.
+	 
+	 
+* 	Inputs:
+
+	* Set transmission input to "in1" for example.
+	* If PDH is used, set PDH input parameters to the same parameters as you 
+	  have in the IQ configuration. Lockbox takes care of the setting, and is 
+	  able to compute gains and slopes automatically
+	
+* 	Make sure to click "Sweep" and test whether a proper sweep is performed, 
+	and "Calibrate" to get the right numbers on the y-axis for the plotted 
+	input error signals
+	
+*	At last, configure the locking sequence:
+
+	* Each stage sleeps for "duration" in seconds after setting the desired gains.
+	* The first stage should be used to reset all offsets to either +1 or -1 
+	  Volts, and wait for 10 ms or so (depending on analog lowpass filters)
+	* Next stage is usually a "drift" stage, where you lock at a detuning of 
+	  +/- 1 or +/- 2 bandwidths, possibly with a gain_factor below 1. make sure 
+	  you enable the checkbox "lock enabled" for the piezo output here **by 
+	  clicking twice on it** (it is actually a 3-state checkbox, see the 
+	  information on the 1-click state when hovering over it). When you enable 
+	  the locking sequence by clicking on lock, monitor the output voltage with a
+	  running scope, and make sure that this drift state actually makes the output voltage
+	  swing upwards. Otherwise, swap the sign of the setpoint / or the initial 
+	  offset of the piezo output. Leave enough time for this stage to catch on to 
+	  the side of a resonance.
+	* Next stages can be adapted to switch to other error signals, modify 
+	  setpoints and gains and so on.
+	
+
+
 """
-from PyQt4 import QtCore, QtGui
+from qtpy import QtCore, QtWidgets
 import pyqtgraph as pg
 import logging
 import numpy as np
 from ..attribute_widgets import BaseAttributeWidget
 from .base_module_widget import ReducedModuleWidget, ModuleWidget
 from ...pyrpl_utils import get_base_module_class
+from ... import APP
 
-
-APP = QtGui.QApplication.instance()
-
-
-class AnalogTfDialog(QtGui.QDialog):
+class AnalogTfDialog(QtWidgets.QDialog):
     def __init__(self, parent):
         super(AnalogTfDialog, self).__init__(parent)
         self.parent = parent
         self.module = self.parent.module
         self.setWindowTitle("Analog transfer function for output %s" % self.module.name)
-        self.lay_v = QtGui.QVBoxLayout(self)
-        self.lay_h = QtGui.QHBoxLayout()
-        self.ok = QtGui.QPushButton('Ok')
+        self.lay_v = QtWidgets.QVBoxLayout(self)
+        self.lay_h = QtWidgets.QHBoxLayout()
+        self.ok = QtWidgets.QPushButton('Ok')
         self.lay_h.addWidget(self.ok)
         self.ok.clicked.connect(self.validate)
-        self.cancel = QtGui.QPushButton('Cancel')
+        self.cancel = QtWidgets.QPushButton('Cancel')
         self.lay_h.addWidget(self.cancel)
-        self.group = QtGui.QButtonGroup()
-        self.flat = QtGui.QRadioButton("Flat response")
-        self.filter = QtGui.QRadioButton('Analog low-pass filter (as in "Pid control/assisted design/analog filter cut-off")')
-        self.curve = QtGui.QRadioButton("User-defined curve")
+        self.group = QtWidgets.QButtonGroup()
+        self.flat = QtWidgets.QRadioButton("Flat response")
+        self.filter = QtWidgets.QRadioButton('Analog low-pass filter (as in "Pid control/assisted design/actuator cut-off")')
+        self.curve = QtWidgets.QRadioButton("User-defined curve")
         self.group.addButton(self.flat)
         self.group.addButton(self.filter)
         self.group.addButton(self.curve)
@@ -37,10 +120,10 @@ class AnalogTfDialog(QtGui.QDialog):
         self.lay_v.addWidget(self.flat)
         self.lay_v.addWidget(self.filter)
         self.lay_v.addWidget(self.curve)
-        self.label = QtGui.QLabel("Curve #")
-        self.line = QtGui.QLineEdit("coucou")
+        self.label = QtWidgets.QLabel("Curve #")
+        self.line = QtWidgets.QLineEdit("coucou")
 
-        self.lay_line = QtGui.QHBoxLayout()
+        self.lay_line = QtWidgets.QHBoxLayout()
         self.lay_v.addLayout(self.lay_line)
         self.lay_v.addWidget(self.line)
         self.lay_line.addStretch(1)
@@ -84,7 +167,7 @@ class AnalogTfDialog(QtGui.QDialog):
         return accept, self.res, self.curve_id
 
 
-class AnalogTfSpec(QtGui.QWidget):
+class AnalogTfSpec(QtWidgets.QWidget):
     """
     A button + label that allows to display and change the transfer function specification
     """
@@ -92,10 +175,10 @@ class AnalogTfSpec(QtGui.QWidget):
         super(AnalogTfSpec, self).__init__(parent)
         self.parent = parent
         self.module = self.parent.module
-        self.layout = QtGui.QVBoxLayout(self)
-        self.label = QtGui.QLabel("Analog transfer function")
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.label = QtWidgets.QLabel("Analog transfer function")
         self.layout.addWidget(self.label)
-        self.button = QtGui.QPushButton('Change...')
+        self.button = QtWidgets.QPushButton('Change...')
         self.layout.addWidget(self.button)
         self.button.clicked.connect(self.change)
         self.dialog = AnalogTfDialog(self)
@@ -121,17 +204,21 @@ class AnalogTfSpec(QtGui.QWidget):
         self.button.setText(txt)
 
 
-class MainOutputProperties(QtGui.QGroupBox):
+class MainOutputProperties(QtWidgets.QGroupBox):
     def __init__(self, parent):
         super(MainOutputProperties, self).__init__(parent)
         self.parent = parent
         self.module = self.parent.module
         aws = self.parent.attribute_widgets
-        self.layout = QtGui.QVBoxLayout(self)
-        self.v1 = QtGui.QHBoxLayout()
-        self.v2 = QtGui.QHBoxLayout()
-        self.layout.addLayout(self.v2)
-        self.layout.addLayout(self.v1)
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.leftlayout = QtWidgets.QVBoxLayout()
+        self.rightlayout = QtWidgets.QVBoxLayout()
+        self.layout.addLayout(self.leftlayout)
+        self.layout.addLayout(self.rightlayout)
+        self.v1 = QtWidgets.QHBoxLayout()
+        self.v2 = QtWidgets.QHBoxLayout()
+        self.leftlayout.addLayout(self.v2)
+        self.leftlayout.addLayout(self.v1)
         self.dcgain = aws['dc_gain']
         self.v1.addWidget(self.dcgain)
         self.dcgain.label.setText('analog DC-gain')
@@ -145,20 +232,22 @@ class MainOutputProperties(QtGui.QGroupBox):
         self.setTitle('Main settings')
         for v in self.v1, self.v2:
             v.setSpacing(9)
+        self.rightlayout.addWidget(aws["max_voltage"])
+        self.rightlayout.addWidget(aws["min_voltage"])
 
     def change_analog_tf(self):
         self.button_tf.change_analog_tf()
 
 
-class SweepOutputProperties(QtGui.QGroupBox):
+class SweepOutputProperties(QtWidgets.QGroupBox):
     def __init__(self, parent):
         super(SweepOutputProperties, self).__init__(parent)
         self.parent = parent
         aws = self.parent.attribute_widgets
-        self.layout = QtGui.QHBoxLayout(self)
-        self.v1 = QtGui.QVBoxLayout()
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.v1 = QtWidgets.QVBoxLayout()
         self.layout.addLayout(self.v1)
-        self.v2 = QtGui.QVBoxLayout()
+        self.v2 = QtWidgets.QVBoxLayout()
         self.layout.addLayout(self.v2)
         self.v1.addWidget(aws["sweep_frequency"])
         self.v1.addWidget(aws['sweep_amplitude'])
@@ -166,13 +255,13 @@ class SweepOutputProperties(QtGui.QGroupBox):
         self.v2.addWidget(aws["sweep_waveform"])
         self.setTitle("Sweep parameters")
 
-class WidgetManual(QtGui.QWidget):
+class WidgetManual(QtWidgets.QWidget):
     def __init__(self, parent):
         super(WidgetManual, self).__init__(parent)
         self.parent = parent
-        self.layout = QtGui.QVBoxLayout(self)
-        self.pv1 = QtGui.QVBoxLayout()
-        self.pv2 = QtGui.QVBoxLayout()
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.pv1 = QtWidgets.QVBoxLayout()
+        self.pv2 = QtWidgets.QVBoxLayout()
         self.layout.addLayout(self.pv1)
         self.layout.addLayout(self.pv2)
         self.p = parent.parent.attribute_widgets["p"]
@@ -190,20 +279,20 @@ class WidgetManual(QtGui.QWidget):
         self.pv2.addWidget(self.i)
         # self.i.label.setMinimumWidth(6)
 
-class WidgetAssisted(QtGui.QWidget):
+class WidgetAssisted(QtWidgets.QWidget):
     def __init__(self, parent):
         super(WidgetAssisted, self).__init__(parent)
         self.parent = parent
-        self.layout = QtGui.QVBoxLayout(self)
-        self.v1 = QtGui.QVBoxLayout()
-        self.v2 = QtGui.QVBoxLayout()
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.v1 = QtWidgets.QVBoxLayout()
+        self.v2 = QtWidgets.QVBoxLayout()
         self.layout.addLayout(self.v1)
         self.layout.addLayout(self.v2)
         self.desired = parent.parent.attribute_widgets["desired_unity_gain_frequency"]
-        self.desired.label.setText('desired unity-gain-frequency (Hz) ')
+        self.desired.label.setText('unity-gain-frequency (Hz) ')
         self.desired.set_log_increment()
         self.analog_filter = parent.parent.attribute_widgets["analog_filter_cutoff"]
-        self.analog_filter.label.setText('analog filter cut-off frequency (Hz)')
+        self.analog_filter.label.setText('actuator cut-off frequency (Hz)')
         #self.analog_filter.set_horizontal()
         # self.analog_filter.layout_v.setSpacing(0)
         # self.analog_filter.layout_v.setContentsMargins(0, 0, 0, 0)
@@ -212,21 +301,21 @@ class WidgetAssisted(QtGui.QWidget):
         self.v2.addWidget(self.analog_filter)
 
 
-class PidProperties(QtGui.QGroupBox):
+class PidProperties(QtWidgets.QGroupBox):
     def __init__(self, parent):
         super(PidProperties, self).__init__(parent)
         self.parent = parent
         self.module = self.parent.module
         aws = self.parent.attribute_widgets
-        self.layout = QtGui.QHBoxLayout(self)
-        self.v2 = QtGui.QVBoxLayout()
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.v2 = QtWidgets.QVBoxLayout()
         self.layout.addLayout(self.v2)
-        self.v1 = QtGui.QVBoxLayout()
+        self.v1 = QtWidgets.QVBoxLayout()
         self.layout.addLayout(self.v1)
 
-        self.radio_group = QtGui.QButtonGroup()
-        self.manual = QtGui.QRadioButton('manual design')
-        self.assisted = QtGui.QRadioButton('assisted design')
+        self.radio_group = QtWidgets.QButtonGroup()
+        self.manual = QtWidgets.QRadioButton('manual design')
+        self.assisted = QtWidgets.QRadioButton('assisted design')
         self.radio_group.addButton(self.manual)
         self.radio_group.addButton(self.assisted)
         self.assisted.toggled.connect(self.toggle_mode)
@@ -271,17 +360,17 @@ class PidProperties(QtGui.QGroupBox):
             self.blockSignals(False)
 
 
-class PostFiltering(QtGui.QGroupBox):
+class PostFiltering(QtWidgets.QGroupBox):
     def __init__(self, parent):
         super(PostFiltering, self).__init__(parent)
         self.parent = parent
         aws = self.parent.attribute_widgets
-        self.layout = QtGui.QVBoxLayout(self)
+        self.layout = QtWidgets.QVBoxLayout(self)
 
         aws = self.parent.attribute_widgets
         self.layout.addWidget(aws["additional_filter"])
 
-        self.mod_layout = QtGui.QHBoxLayout()
+        self.mod_layout = QtWidgets.QHBoxLayout()
         self.mod_layout.addWidget(aws["extra_module"])
         self.mod_layout.addWidget(aws["extra_module_state"])
         self.layout.addLayout(self.mod_layout)
@@ -304,17 +393,18 @@ class OutputSignalWidget(ModuleWidget):
         self.main_props.change_analog_tf()
 
     def init_gui(self):
-        self.main_layout = QtGui.QVBoxLayout()
-        self.setLayout(self.main_layout)
+        #self.main_layout = QtWidgets.QVBoxLayout()
+        #self.setLayout(self.main_layout)
+        self.init_main_layout(orientation="vertical")
         self.init_attribute_layout()
         for widget in self.attribute_widgets.values():
             self.main_layout.removeWidget(widget)
-        self.upper_layout = QtGui.QHBoxLayout()
+        self.upper_layout = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(self.upper_layout)
-        self.col1 = QtGui.QVBoxLayout()
-        self.col2 = QtGui.QVBoxLayout()
-        self.col3 = QtGui.QVBoxLayout()
-        self.col4 = QtGui.QVBoxLayout()
+        self.col1 = QtWidgets.QVBoxLayout()
+        self.col2 = QtWidgets.QVBoxLayout()
+        self.col3 = QtWidgets.QVBoxLayout()
+        self.col4 = QtWidgets.QVBoxLayout()
         self.upper_layout.addStretch(1)
         self.upper_layout.addLayout(self.col1)
         self.upper_layout.addStretch(1)
@@ -362,8 +452,8 @@ class OutputSignalWidget(ModuleWidget):
         self.curve.setLogMode(xMode=True, yMode=True)
         self.curve_phase.setLogMode(xMode=True, yMode=None)
 
-        self.plotbox = QtGui.QGroupBox(self)
-        self.plotbox.layout = QtGui.QVBoxLayout(self.plotbox)
+        self.plotbox = QtWidgets.QGroupBox(self)
+        self.plotbox.layout = QtWidgets.QVBoxLayout(self.plotbox)
         self.plotbox.setTitle("Complete open-loop transfer function (V/V)")
         self.plotbox.layout.addWidget(self.win)
         self.plotbox.layout.addWidget(self.win_phase)
@@ -387,7 +477,8 @@ class LockboxInputWidget(ModuleWidget):
     A widget to represent a single lockbox input
     """
     def init_gui(self):
-        self.main_layout = QtGui.QVBoxLayout(self)
+        #self.main_layout = QtWidgets.QVBoxLayout(self)
+        self.init_main_layout(orientation="vertical")
         self.init_attribute_layout()
 
         self.win = pg.GraphicsWindow(title="Expected signal")
@@ -397,40 +488,40 @@ class LockboxInputWidget(ModuleWidget):
         self.curve_slope = self.plot_item.plot(pen=pg.mkPen('b', width=5))
         self.symbol = self.plot_item.plot(pen='b', symbol='o')
         self.main_layout.addWidget(self.win)
-        self.button_calibrate = QtGui.QPushButton('Calibrate')
+        self.button_calibrate = QtWidgets.QPushButton('Calibrate')
         self.main_layout.addWidget(self.button_calibrate)
         self.button_calibrate.clicked.connect(lambda: self.module.calibrate())
-        self.update_expected_signal()
+        self.input_calibrated()
 
     def hide_lock(self):
         self.curve_slope.setData([], [])
         self.symbol.setData([], [])
         self.plot_item.enableAutoRange(enable=True)
 
-    def show_lock(self, input, variable_value):
-        signal = self.module.expected_signal(variable_value)
-        slope = self.module.expected_slope(variable_value)
-        dx = 1
+    def show_lock(self, stage):
+        setpoint = stage.setpoint
+        signal = self.module.expected_signal(setpoint)
+        slope = self.module.expected_slope(setpoint)
+        dx = self.module.lockbox.is_locked_threshold
         self.plot_item.enableAutoRange(enable=False)
-        self.curve_slope.setData([variable_value - dx, variable_value + dx],
-                                 [signal - slope * dx, signal + slope*dx])
-        self.symbol.setData([variable_value], [signal])
+        self.curve_slope.setData([setpoint-dx, setpoint+dx],
+                                 [signal-slope*dx, signal+slope*dx])
+        self.symbol.setData([setpoint], [signal])
+        self.module._logger.debug("show_lock with sp %f, signal %f",
+                                  setpoint,
+                                  signal)
 
-    def show_graph(self, x, y):
-        """
-        x, y are two 1D arrays.
-        """
-        self.curve.setData(x, y)
-
-    def update_expected_signal(self, input=None):
+    def input_calibrated(self, input=None):
         # if input is None, input associated with this widget is used
         if input is None:
             input = self.module
         y = input.expected_signal(input.plot_range)
-        self.show_graph(input.plot_range, y)
+        self.curve.setData(input.plot_range, y)
+        input._logger.debug('Updated widget for input %s to '
+                            'show GUI display of expected signal (min at %f)!',
+                            input.name, input.expected_signal(0))
 
-
-class InputsWidget(QtGui.QWidget):
+class InputsWidget(QtWidgets.QWidget):
     """
     A widget to represent all input signals on the same tab
     """
@@ -439,44 +530,33 @@ class InputsWidget(QtGui.QWidget):
         self.all_sig_widget = all_sig_widget
         self.lb_widget = self.all_sig_widget.lb_widget
         super(InputsWidget, self).__init__(all_sig_widget)
-        self.layout = QtGui.QHBoxLayout(self)
-        self.input_widgets = []
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.input_widgets = dict()
         #self.layout.addStretch(1)
         for signal in self.lb_widget.module.inputs:
             self.add_input(signal)
         #self.layout.addStretch(1)
 
     def remove_input(self, input):
-        for widget in self.input_widgets:
-            if widget.name == input.name:
-                widget.hide()
-                self.input_widgets.remove(widget)
-                widget.deleteLater()
+        widget = self.input_widgets.pop(input.name)
+        widget.hide()
+        widget.deleteLater()
 
     def add_input(self, input):
         widget = input._create_widget()
-        self.input_widgets.append(widget)
+        self.input_widgets[input.name] = widget
         self.layout.addWidget(widget, stretch=3)
 
-    def update_expected_input_signal(self, input):
-        for widget in self.input_widgets:
-            if widget.name==input.name:
-                widget.update_expected_signal(input)
-
-    def show_lock(self, stage):
-        for widget in self.input_widgets:
-            try:
-                if widget.name==stage.input:
-                    widget.show_lock(stage.input, stage.setpoint)
-            except AttributeError:  # when stage is not a Stage object
-                pass
+    def input_calibrated(self, inputs):
+        for input in inputs:
+            self.input_widgets[input.name].input_calibrated()
 
 
-class PlusTab(QtGui.QWidget):
+class PlusTab(QtWidgets.QWidget):
     name = '+'
 
 
-class MyTabBar(QtGui.QTabBar):
+class MyTabBar(QtWidgets.QTabBar):
     def tabSizeHint(self, index):
         """
         Tab '+' and 'inputs' are smaller since they don't have a close button
@@ -488,7 +568,7 @@ class MyTabBar(QtGui.QTabBar):
         return size
 
 
-class AllSignalsWidget(QtGui.QTabWidget):
+class AllSignalsWidget(QtWidgets.QTabWidget):
     """
     A tab widget combining all inputs and outputs of the lockbox
     """
@@ -497,16 +577,16 @@ class AllSignalsWidget(QtGui.QTabWidget):
         self.tab_bar = MyTabBar()
         self.setTabBar(self.tab_bar)
         self.setTabsClosable(True)
-        self.tabBar().setSelectionBehaviorOnRemove(QtGui.QTabBar.SelectLeftTab) # otherwise + tab could be selected by
+        self.tabBar().setSelectionBehaviorOnRemove(QtWidgets.QTabBar.SelectLeftTab) # otherwise + tab could be selected by
         # removing previous tab
         self.output_widgets = []
         self.lb_widget = lockbox_widget
         self.inputs_widget = InputsWidget(self)
         self.addTab(self.inputs_widget, "inputs")
-        self.tabBar().tabButton(0, QtGui.QTabBar.RightSide).resize(0, 0) # hide "close" for "inputs" tab
+        self.tabBar().tabButton(0, QtWidgets.QTabBar.RightSide).resize(0, 0) # hide "close" for "inputs" tab
         self.tab_plus = PlusTab()  # dummy widget that will never be displayed
         self.addTab(self.tab_plus, "+")
-        self.tabBar().tabButton(self.count() - 1, QtGui.QTabBar.RightSide).resize(0, 0)  # hide "close" for "+" tab
+        self.tabBar().tabButton(self.count() - 1, QtWidgets.QTabBar.RightSide).resize(0, 0)  # hide "close" for "+" tab
         for signal in self.lb_widget.module.outputs:
             self.add_output(signal)
         self.currentChanged.connect(self.tab_changed)
@@ -565,8 +645,8 @@ class AllSignalsWidget(QtGui.QTabWidget):
             self.get_output_widget_by_name(
                 output.name).update_transfer_function()
 
-    def update_expected_input_signal(self, input):
-        self.inputs_widget.update_expected_input_signal(input)
+    def input_calibrated(self, inputs):
+        self.inputs_widget.input_calibrated(inputs)
 
     def get_output_widget_by_name(self, name):
         for widget in self.output_widgets:
@@ -574,22 +654,22 @@ class AllSignalsWidget(QtGui.QTabWidget):
                 return widget
 
 
-class MyCloseButton(QtGui.QPushButton):
+class MyCloseButton(QtWidgets.QPushButton):
     def __init__(self, parent=None):
         super(MyCloseButton, self).__init__(parent)
         style = APP.style()
-        close_icon = style.standardIcon(QtGui.QStyle.SP_TitleBarCloseButton)
+        close_icon = style.standardIcon(QtWidgets.QStyle.SP_TitleBarCloseButton)
         self.setIcon(close_icon)
         self.setFixedHeight(16)
         self.setFixedWidth(16)
         self.setToolTip("Delete this stage...")
 
 
-class MyAddButton(QtGui.QPushButton):
+class MyAddButton(QtWidgets.QPushButton):
     def __init__(self, parent=None):
         super(MyAddButton, self).__init__(parent)
         style = APP.style()
-        close_icon = style.standardIcon(QtGui.QStyle.SP_TitleBarNormalButton)
+        close_icon = style.standardIcon(QtWidgets.QStyle.SP_TitleBarNormalButton)
         self.setIcon(close_icon)
         self.setFixedHeight(16)
         self.setFixedWidth(16)
@@ -599,10 +679,38 @@ class MyAddButton(QtGui.QPushButton):
 class StageOutputWidget(ReducedModuleWidget):
     def init_attribute_layout(self):
         super(StageOutputWidget, self).init_attribute_layout()
-        # constrain the size of the offset
-        self.attribute_widgets["offset"].resize(1, self.attribute_widgets["offset"].height())
-        self.attribute_widgets["offset"].setFixedWidth(100)
-        self.attribute_widgets["reset_offset"].setToolTip("Reset output offset value at the beginning of this stage?")
+        #self.offset_widget = QtWidgets.QGroupBox()
+        #self.main_layout.addWidget(self.offset_widget)
+        #self.offset_layout = QtWidgets.QHBoxLayout()
+        #self.offset_widget.setLayout(self.offset_layout)
+        #self.offset_widget.setTitle("offset")
+        self.offset_layout = self.main_layout
+        lo = self.attribute_widgets["lock_on"]
+        ro = self.attribute_widgets["reset_offset"]
+        o = self.attribute_widgets["offset"]
+        self.main_layout.removeWidget(lo)
+        self.main_layout.removeWidget(ro)
+        self.main_layout.removeWidget(o)
+        self.offset_layout.addWidget(lo)
+        lo.label.setText("lock on")
+        self.offset_layout.addStretch(1)
+        self.offset_layout.addWidget(ro)
+        self.offset_layout.addWidget(o)
+        ro.setToolTip("Reset output offset value at the beginning of this "
+                      "stage?")
+        o.resize(1, self.attribute_widgets["offset"].height())
+        o.setFixedWidth(110)
+        ro.label.setText("reset")
+        o.label.setText(" offset")
+        self.setFixedHeight(75)
+
+    def update_offset_visibility(self):
+        self.attribute_widgets["offset"].widget.setEnabled(self.module.reset_offset)
+
+    def update_attribute_by_name(self, name, new_value_list):
+        super(StageOutputWidget, self).update_attribute_by_name(name, new_value_list)
+        if name == 'reset_offset':
+            self.update_offset_visibility()
 
 
 class LockboxStageWidget(ReducedModuleWidget):
@@ -618,15 +726,16 @@ class LockboxStageWidget(ReducedModuleWidget):
         pass
 
     def init_gui(self):
-        self.main_layout = QtGui.QVBoxLayout(self)
+        #self.main_layout = QtWidgets.QVBoxLayout(self)
+        self.init_main_layout(orientation="vertical")
         self.init_attribute_layout()
         for name, attr in self.attribute_widgets.items():
             self.attribute_layout.removeWidget(attr)
-        self.lay_h1 = QtGui.QHBoxLayout()
+        self.lay_h1 = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(self.lay_h1)
-        self.lay_v1 = QtGui.QVBoxLayout()
+        self.lay_v1 = QtWidgets.QVBoxLayout()
         self.lay_h1.addLayout(self.lay_v1)
-        self.lay_v2 = QtGui.QVBoxLayout()
+        self.lay_v2 = QtWidgets.QVBoxLayout()
         self.lay_h1.addLayout(self.lay_v2)
         aws = self.attribute_widgets
         #self.lay_v1.addWidget(aws['name'])
@@ -634,15 +743,18 @@ class LockboxStageWidget(ReducedModuleWidget):
         self.lay_v2.addWidget(aws['setpoint'])
         self.lay_v1.addWidget(aws['duration'])
         self.lay_v2.addWidget(aws['gain_factor'])
-        self.lay_h2 = QtGui.QVBoxLayout()
+        self.lay_h2 = QtWidgets.QVBoxLayout()
         self.main_layout.addLayout(self.lay_h2)
+        self.output_widgets = []
         for output in self.module.lockbox.outputs:
-            self.lay_h2.addWidget(self.module.outputs[output.name]._create_widget())
-        self.lay_h3 = QtGui.QHBoxLayout()
-        self.main_layout.addLayout(self.lay_h3)
-        self.lay_h3.addWidget(aws['function_call'])
-
-        self.button_goto = QtGui.QPushButton('Go to this stage')
+            self.output_widgets.append(self.module.outputs[output.name]._create_widget())
+            self.lay_h2.addWidget(self.output_widgets[-1])
+        #self.lay_h3 = QtWidgets.QHBoxLayout()
+        #self.main_layout.addLayout(self.lay_h3)
+        aws['function_call'].set_horizontal()
+        #self.lay_h3.addWidget(aws['function_call'])
+        self.main_layout.addWidget(aws['function_call'])
+        self.button_goto = QtWidgets.QPushButton('Go to this stage')
         self.button_goto.clicked.connect(self.module.enable)
         self.main_layout.addWidget(self.button_goto)
 
@@ -669,7 +781,7 @@ class LockboxStageWidget(ReducedModuleWidget):
             self.module.parent.remove(self.module)
 
     def show_lock(self):
-        self.parent().parent().set_button_green(self.button_goto)
+        self.parent().parent()._set_button_green(self.button_goto)
 
 
 class LockboxSequenceWidget(ModuleWidget):
@@ -677,11 +789,11 @@ class LockboxSequenceWidget(ModuleWidget):
     A widget to represent all lockbox stages
     """
     def init_gui(self):
-        self.main_layout = QtGui.QHBoxLayout(self)
+        self.init_main_layout(orientation="horizontal")
         self.init_attribute_layout()
         self.stage_widgets = []
-        self.button_add = QtGui.QPushButton('+')
-        self.button_add.setSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Expanding)
+        self.button_add = QtWidgets.QPushButton('+')
+        self.button_add.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
         #self.button_add.setMinimumHeight(60)
         self.button_add.clicked.connect(lambda: self.module.append(self.module[-1].setup_attributes))
         self.main_layout.addWidget(self.button_add)
@@ -690,9 +802,9 @@ class LockboxSequenceWidget(ModuleWidget):
         self.main_layout.addStretch(2)
 
     def stage_created(self, stage):
-        stage = stage[0] # values are passed as list of length 1
+        stage = stage[0]  # values are passed as list of length 1
         widget = stage._create_widget()
-        stage._widget = widget
+        stage._widget = widget  # replaced by _module_widget, TODO: refactor
         self.stage_widgets.insert(stage.name, widget)
         if stage.name >= len(self.stage_widgets)-1:
             # stage must be inserted at the end
@@ -708,8 +820,8 @@ class LockboxSequenceWidget(ModuleWidget):
         stage = stage[0] # values are passes as list of length 1
         widget = stage._widget
         self.stage_widgets.remove(widget)
-        if self.parent().parent().parent().button_green == widget.button_goto:
-            self.parent().parent().parent().button_green = None
+        if self.parent().parent().parent().parent().button_green == widget.button_goto:
+            self.parent().parent().parent().parent().button_green = None
         widget.hide()
         self.main_layout.removeWidget(widget)
         widget.deleteLater()
@@ -719,6 +831,18 @@ class LockboxSequenceWidget(ModuleWidget):
         for widget in self.stage_widgets:
             widget.set_title(widget.name)
 
+    def show_widget(self):
+        super(LockboxSequenceWidget, self).show_widget()
+        minimumsizehint = self.minimumSizeHint().height() \
+                          + self.scrollarea.horizontalScrollBar().height()
+        self.scrollarea.setMinimumHeight(minimumsizehint)
+
+    def hide_widget(self):
+        super(LockboxSequenceWidget, self).hide_widget()
+        minimumsizehint = self.minimumSizeHint().height() \
+                          + self.scrollarea.horizontalScrollBar().height()
+        self.scrollarea.setMinimumHeight(minimumsizehint)
+
 
 class LockboxWidget(ModuleWidget):
     """
@@ -726,11 +850,10 @@ class LockboxWidget(ModuleWidget):
     """
     def init_gui(self):
         # make standard layout
-        self.main_layout = QtGui.QVBoxLayout()
-        self.setLayout(self.main_layout)  # wasnt here before
+        self.init_main_layout("vertical")
         self.init_attribute_layout()
         # move all custom attributes to the second GUI line (spares place)
-        self.custom_attribute_layout = QtGui.QHBoxLayout()
+        self.custom_attribute_layout = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(self.custom_attribute_layout)
         lockbox_base_class = get_base_module_class(self.module)
         for attr_name in self.module._gui_attributes:
@@ -739,13 +862,13 @@ class LockboxWidget(ModuleWidget):
                 self.attribute_layout.removeWidget(widget)
                 self.custom_attribute_layout.addWidget(widget)
         # add buttons to standard attribute layout
-        self.button_is_locked = QtGui.QPushButton("is_locked?")
-        self.button_lock = QtGui.QPushButton("Lock")
-        self.button_unlock = QtGui.QPushButton("Unlock")
-        self.button_sweep = QtGui.QPushButton("Sweep")
-        self.button_calibrate_all = QtGui.QPushButton("Calibrate all inputs")
+        self.button_is_locked = QtWidgets.QPushButton("is_locked?")
+        self.button_lock = QtWidgets.QPushButton("Lock")
+        self.button_unlock = QtWidgets.QPushButton("Unlock")
+        self.button_sweep = QtWidgets.QPushButton("Sweep")
+        self.button_calibrate_all = QtWidgets.QPushButton("Calibrate all inputs")
         self.button_green = self.button_unlock
-        self.set_button_green(self.button_green)
+        self._set_button_green(self.button_green)
         self.attribute_layout.addWidget(self.button_is_locked)
         self.attribute_layout.addWidget(self.button_lock)
         self.attribute_layout.addWidget(self.button_unlock)
@@ -760,26 +883,27 @@ class LockboxWidget(ModuleWidget):
 
         # Locking sequence widget + hide button
         self.sequence_widget = self.module.sequence._create_widget()
-        self.scrollarea = QtGui.QScrollArea()
+        self.scrollarea = QtWidgets.QScrollArea()
+        self.sequence_widget.scrollarea = self.scrollarea
         self.scrollarea.setWidget(self.sequence_widget)
         minimumsizehint = self.sequence_widget.minimumSizeHint().height() \
-                         + self.scrollarea.horizontalScrollBar().height()
+                          + self.scrollarea.horizontalScrollBar().height()
         self.scrollarea.setMinimumHeight(minimumsizehint)
         #self.scrollarea.setVerticalScrollBarPolicy(
         #    QtCore.Qt.ScrollBarAlwaysOff)
-        #self.sequence_widget.setSizePolicy(QtGui.QSizePolicy.Preferred,
-        #                                   QtGui.QSizePolicy.Preferred)
+        #self.sequence_widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+        #                                   QtWidgets.QSizePolicy.Preferred)
         self.scrollarea.setWidgetResizable(True)
         self.main_layout.addWidget(self.scrollarea)
         # hide button for sequence
-        # self.button_hide1 = QtGui.QPushButton("^ Lock sequence ^")
+        # self.button_hide1 = QtWidgets.QPushButton("^ Lock sequence ^")
         # self.button_hide1.setMaximumHeight(15)
         # self.button_hide1.clicked.connect(self.button_hide1_clicked)
         # self.main_layout.addWidget(self.button_hide1)
 
         # inputs/ outputs widget
         self.all_sig_widget = AllSignalsWidget(self)
-        self.button_hide2 = QtGui.QPushButton("hide inputs / outputs")
+        self.button_hide2 = QtWidgets.QPushButton("hide inputs / outputs")
         #self.button_hide_clicked() # open by default
         self.button_hide2.setMaximumHeight(15)
         #self.button_hide2.setMaximumWidth(150)
@@ -787,8 +911,18 @@ class LockboxWidget(ModuleWidget):
         self.main_layout.addWidget(self.button_hide2)
         self.main_layout.addWidget(self.all_sig_widget)
 
+        # optional
+        for name in self.module._module_attributes:
+            module = getattr(self.module, name)
+            if len(module._gui_attributes) > 0:
+                try:
+                    widget = module._create_widget()
+                    self.main_layout.addWidget(widget)
+                except:
+                    self.module._logger.warning("Problem while creating lockbux submodule widget for %s.", name)
+
         self.main_layout.addStretch(5)
-        self.setLayout(self.main_layout)
+        #self.setLayout(self.main_layout)
 
     def delete_widget(self):
         self.module = None  # allow module to be deleted
@@ -827,21 +961,6 @@ class LockboxWidget(ModuleWidget):
             self.button_hide2.setText('show' + current[4:])
             self.all_sig_widget.hide()
 
-    def input_calibrated(self, inputs):
-        """
-        SLOT: don't change name unless you know what you are doing
-        updates the plot of the input expected signal for input inputs[0]
-        """
-        for input in inputs:
-            self.all_sig_widget.update_expected_input_signal(input)
-
-    def update_transfer_function(self, outputs):
-        """
-        SLOT: don't change name unless you know what you are doing
-        updates the plot of the transfer function for output outputs[0]
-        """
-        self.all_sig_widget.update_transfer_function(outputs[0])
-
     ## Input Management
     def add_input(self, inputs):
         """
@@ -879,53 +998,57 @@ class LockboxWidget(ModuleWidget):
         """
         self.all_sig_widget.remove_output(outputs[0])
 
-    def state_changed(self):
+    def input_calibrated(self, inputs):
+        """
+        SLOT: don't change name unless you know what you are doing
+        updates the plot of the input expected signal for input inputs[0]
+        """
+        self.all_sig_widget.inputs_widget.input_calibrated(inputs)
+
+    def update_transfer_function(self, outputs):
+        """
+        SLOT: don't change name unless you know what you are doing
+        updates the plot of the transfer function for output outputs[0]
+        """
+        self.all_sig_widget.update_transfer_function(outputs[0])
+
+    def state_changed(self, statelist):
         """
         SLOT: don't change name unless you know what you are doing
         Basically painting some button in green is required
         """
-        stage = self.module.current_stage
+        stage = self.module._current_stage(state=statelist[0])
         if stage=='unlock':
-            self.set_button_green(self.button_unlock)
-            self.hide_lock_points()
+            self._set_button_green(self.button_unlock)
+            self.hide_lock()
         elif stage=='sweep':
-            self.hide_lock_points()
-            self.set_button_green(self.button_sweep)
+            self.hide_lock()
+            self._set_button_green(self.button_sweep)
         else:
-            try:
-                self.set_button_green(stage._widget.button_goto)
-            except AttributeError:  # if stage has not widget (final_stage)
-                self.set_button_green(None)
-            self.show_lock(stage)
+            if stage != self.module.final_stage:
+                self._set_button_green(stage._widget.button_goto)
+            else:
+                self._set_button_green(self.module.sequence[-1]._widget.button_goto, color='darkGreen')
+            for input, widget in self.all_sig_widget.inputs_widget.input_widgets.items():
+                if input == stage.input:
+                    widget.show_lock(stage)
+                else:
+                    widget.hide_lock()
         self.update_lockstatus()
 
-    def set_button_green(self, button):
+    def hide_lock(self):
+        for input, widget in self.all_sig_widget.inputs_widget.input_widgets.items():
+            widget.hide_lock()
+
+    def _set_button_green(self, button, color='green'):
         """
         Only one colored button can exist at a time
         """
         if self.button_green is not None:
             self.button_green.setStyleSheet("")
         if button is not None:
-            button.setStyleSheet("background-color:green")
+            button.setStyleSheet("background-color:%s"%color)
         self.button_green = button
-
-    def show_lock(self, stage):
-        """
-        The button of the stage widget becomes green, the expected signal graph of input show the lock point and slope.
-        """
-        self.hide_lock_points()
-        if isinstance(stage, int):
-            stage = self.module.sequence[stage]
-        elif stage == "final_stage":
-            stage = self.module.final_stage
-        self.all_sig_widget.show_lock(stage)
-
-    def hide_lock_points(self):
-        """
-        make sure all input graphs are not displaying any setpoints and slopes
-        """
-        for input_widget in self.all_sig_widget.inputs_widget.input_widgets:
-            input_widget.hide_lock()
 
     def update_lockstatus(self, islockedlist=[None]):
         islocked = islockedlist[0]

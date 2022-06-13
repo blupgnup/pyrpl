@@ -34,9 +34,9 @@ class CustomInputClass(InputSignal):
         """ This is a simplified calibration method. InputSignal.calibrate works better than this in most cases. """
         self.lockbox.sweep()
         # get a curve of the signal during the sweep
-        curve = self.sweep_acquire()
+        curve,_ = self.sweep_acquire()
         # fill self.mean, min, max, rms with values from acquired curve.
-        self.get_stats_from_curve(curve=curve)
+        self.calibration_data.get_stats_from_curve(curve=curve)
 
 
 class CustomLockbox(Lockbox):
@@ -80,7 +80,8 @@ class CustomLockbox(Lockbox):
 #        self.plot.append(green=np.sin(time()), red=np.cos(time()))
 
 class ExampleLoop(LockboxPlotLoop): # or inherit from
-    def _init_module(self):
+    def __init__(self, parent, name=None):
+        super(ExampleLoop, self).__init__(parent, name=name)
         self.c.n = 0
         self.last_texcess = 0
         self.result_ready = "not ready"
