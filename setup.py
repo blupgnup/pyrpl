@@ -42,31 +42,18 @@ requirements = ['scp',
                 'pyyaml',
                 #'ruamel.yaml' # temporarily disabled
                 'pandas',
-                'pyqtgraph',
                 'numpy>=1.9',
                 'paramiko>=2.0',
                 'nose>=1.0',
-                'PyQt5<=5.14',  # cannot be installed with pip
-                'qtpy<=1.9',  # qtpy 1.11 contains breaking API changes related to pyqtSignals
-                'ipykernel>=5,<6',  # otherwise jupyter breaks
-                'nbconvert',
-                'jupyter-client']
+                'nbconvert']
 if sys.version_info >= (3,4):  # python version dependencies
-    requirements += ['quamash']
+    # requirements += ['quamash'] # Is there an interest for async functions without Qt ?
+    pass
 else:  # python 2.7
     requirements += ['futures', 'mock']  # mock is now a full dependency
-if os.environ.get('TRAVIS') == 'true':
-    requirements += ['pandoc']
-if os.environ.get('READTHEDOCS') == 'True':
-    requirements += ['pandoc', 'sphinx', 'sphinx_bootstrap_theme']  # mock is needed on readthedocs.io to mock PyQt5
-    # remove a few of the mocked modules
-    def rtd_included(r):
-        for rr in ['numpy', 'scipy', 'pandas', 'scp', 'paramiko', 'nose',
-                   'quamash', 'qtpy', 'asyncio', 'pyqtgraph']:
-            if r.startswith(rr):
-                return False
-        return True
-    requirements = [r for r in requirements if rtd_included(r)]
+
+# Removing the docs for the 'lite' version.
+# Might be done in a smarter way...
 
 # cannot install pyQt4 with pip:
 # http://stackoverflow.com/questions/4628519/is-it-possible-to-require-pyqt-from-setuptools-setup-py
