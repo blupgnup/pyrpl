@@ -21,7 +21,7 @@ from collections import OrderedDict
 from shutil import copyfile
 import numpy as np
 import time
-from qtpy import QtCore
+from threading import Timer
 from . import default_config_dir, user_config_dir
 from .pyrpl_utils import time
 
@@ -503,10 +503,7 @@ class MemoryTree(MemoryBranch):
             self._data = OrderedDict()
         self._lastsave = time()
         # create a timer to postpone to frequent savings
-        self._savetimer = QtCore.QTimer()
-        self._savetimer.setInterval(self._loadsavedeadtime*1000)
-        self._savetimer.setSingleShot(True)
-        self._savetimer.timeout.connect(self._write_to_file)
+        self._savetimer = Timer(self._loadsavedeadtime, self._write_to_file) # not using QtCore to avoid dependencies
         self._load()
 
         self._save_counter = 0 # cntr for unittest and debug purposes
@@ -572,8 +569,8 @@ class MemoryTree(MemoryBranch):
         Immmediately writes the content of the memory tree to file
         """
         # stop save timer
-        if hasattr(self, '_savetimer') and self._savetimer.isActive():
-            self._savetimer.stop()
+        if hasattr(self, '_savetimer') and self._savetimer.is_alive():
+            self._savetimer.cancel() 
         self._lastsave = time()
         self._write_to_file_counter += 1
         logger.debug("Saving config file %s", self._filename)
@@ -627,7 +624,7 @@ class MemoryTree(MemoryBranch):
             self._write_to_file()
         else:
             # make sure saving will eventually occur by launching a timer
-            if not self._savetimer.isActive():
+            if not self._savetimer.is_alive():
                 self._savetimer.start()
 
     @property
