@@ -9,7 +9,7 @@ from ...attributes import BoolProperty, FloatProperty, SelectProperty, \
 from ...curvedb import CurveDB
 from ...hardware_modules.asg import Asg0, Asg1
 from ...hardware_modules.pid import Pid
-from ...widgets.module_widgets import OutputSignalWidget
+#from ...widgets.module_widgets import OutputSignalWidget
 
 
 class AdditionalFilterAttribute(FilterProperty):
@@ -50,24 +50,24 @@ class OutputSignal(Signal):
       - tf_type: ["flat", "curve", "filter"], how is the analog transfer
         function specified.
     """
-    _widget_class = OutputSignalWidget
-    _gui_attributes = ['unit',
-                      'sweep_amplitude',
-                      'sweep_offset',
-                      'sweep_frequency',
-                      'sweep_waveform',
-                      'dc_gain',
-                      'output_channel',
-                      'p',
-                      'i',
-                      'additional_filter',
-                      'analog_filter_cutoff',
-                      'extra_module',
-                      'extra_module_state',
-                      'desired_unity_gain_frequency',
-                      'max_voltage',
-                      'min_voltage']
-    _setup_attributes = _gui_attributes + ['assisted_design', 'tf_curve',
+    #_widget_class = OutputSignalWidget
+    #_gui_attributes = ['unit',
+    #                  'sweep_amplitude',
+    #                  'sweep_offset',
+    #                  'sweep_frequency',
+    #                  'sweep_waveform',
+    #                  'dc_gain',
+    #                  'output_channel',
+    #                  'p',
+    #                  'i',
+    #                  'additional_filter',
+    #                  'analog_filter_cutoff',
+    #                  'extra_module',
+    #                  'extra_module_state',
+    #                  'desired_unity_gain_frequency',
+    #                  'max_voltage',
+    #                  'min_voltage']
+    _setup_attributes = ['assisted_design', 'tf_curve',
                                            'tf_type']
     # main attributes
     dc_gain = FloatProperty(default=1.0, min=-1e10, max=1e10, call_setup=True)

@@ -1,5 +1,5 @@
 from . import DspModule
-from ..widgets.module_widgets import PwmWidget
+#from ..widgets.module_widgets import PwmWidget
 
 
 class Pwm(DspModule):
@@ -24,7 +24,7 @@ class Pwm(DspModule):
     Currently, only pwm1 and pwm2 are available.
     """
 
-    _widget_class = PwmWidget
+    #_widget_class = PwmWidget
     _setup_attributes = ["input"]
 
     _gui_attributes = _setup_attributes

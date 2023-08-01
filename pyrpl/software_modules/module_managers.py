@@ -50,8 +50,8 @@ starting from the end of the list) is returned by the module manager:
 
 import logging
 logger = logging.getLogger(name=__name__)
-from ..widgets.module_widgets import ModuleManagerWidget, AsgManagerWidget, PidManagerWidget, IqManagerWidget, \
-    ScopeManagerWidget, IirManagerWidget, PwmManagerWidget
+#from ..widgets.module_widgets import ModuleManagerWidget, AsgManagerWidget, PidManagerWidget, IqManagerWidget, \
+#    ScopeManagerWidget, IirManagerWidget, PwmManagerWidget
 from ..modules import Module
 
 
@@ -75,7 +75,7 @@ class ModuleManager(Module):
       - free(module): frees the module by reseting its user to None.
       (and enabling back its gui if any).
     """
-    _widget_class = ModuleManagerWidget
+    #_widget_class = ModuleManagerWidget
     _reserved_modules = [] # list-of
     # _int with instrument index that should
     # NOT be available via pop()
@@ -150,17 +150,17 @@ class ModuleManager(Module):
 
 
 class Asgs(ModuleManager):
-    _widget_class = AsgManagerWidget
+    pass#_widget_class = AsgManagerWidget
 
 class Pwms(ModuleManager):
-    _widget_class = PwmManagerWidget
+    pass #_widget_class = PwmManagerWidget
 
 class Pids(ModuleManager):
-    _widget_class = PidManagerWidget
+    pass #_widget_class = PidManagerWidget
 
 
 class Iqs(ModuleManager):
-    _widget_class = IqManagerWidget
+    pass #_widget_class = IqManagerWidget
     #_reserved_modules = [2] # iq2 is reserved for spectrum_analyzer
 
 
@@ -168,14 +168,14 @@ class Scopes(ModuleManager):
     """
     Only one scope, but it should be protected by the slave/owner mechanism.
     """
-    _widget_class = ScopeManagerWidget
+    pass #_widget_class = ScopeManagerWidget
 
 
 class Iirs(ModuleManager):
     """
     Only one iir, but it should be protected by the slave/owner mechanism.
     """
-    _widget_class = IirManagerWidget
+    pass #_widget_class = IirManagerWidget
 
 
 class Trigs(ModuleManager):

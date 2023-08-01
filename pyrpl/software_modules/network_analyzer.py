@@ -1,7 +1,7 @@
 from copy import copy
 
 import numpy as np
-from qtpy import QtWidgets
+#from qtpy import QtWidgets
 import logging
 
 from ..async_utils import wait, ensure_future, sleep_async #PyrplFuture,
@@ -13,7 +13,7 @@ from ..attributes import FloatProperty, SelectProperty, FrequencyProperty, \
 from ..hardware_modules import all_inputs, all_output_directs, InputSelectProperty
 from ..modules import SignalModule
 from ..acquisition_module import AcquisitionModule
-from ..widgets.module_widgets import NaWidget
+#from ..widgets.module_widgets import NaWidget
 from ..hardware_modules.iq import Iq
 
 # timeit.default_timer() is THE precise timer to use (microsecond precise vs
@@ -96,24 +96,24 @@ class NetworkAnalyzer(AcquisitionModule, SignalModule):
               print response
     """
     AUTO_AMP_AVG = 20
-    _widget_class = NaWidget
-    _gui_attributes = ["input",
-                       "output_direct",
-                       "acbandwidth",
-                       "start_freq",
-                       "stop_freq",
-                       "rbw",
-                       "average_per_point",
-                       "points",
-                       "amplitude",
-                       "logscale",
-                       "auto_bandwidth",
-                       "q_factor_min",
-                       "auto_amplitude",
-                       "target_dbv",
-                       "auto_amp_min",
-                       "auto_amp_max"]
-    _setup_attributes = _gui_attributes
+    #_widget_class = NaWidget
+    # _gui_attributes = ["input",
+    #                    "output_direct",
+    #                    "acbandwidth",
+    #                    "start_freq",
+    #                    "stop_freq",
+    #                    "rbw",
+    #                    "average_per_point",
+    #                    "points",
+    #                    "amplitude",
+    #                    "logscale",
+    #                    "auto_bandwidth",
+    #                    "q_factor_min",
+    #                    "auto_amplitude",
+    #                    "target_dbv",
+    #                    "auto_amp_min",
+    #                    "auto_amp_max"]
+    _setup_attributes = []
     trace_average = IntProperty(doc="number of curves to average in single mode. In "
                                 "continuous mode, a decaying average with a "
                                 "characteristic memory of 'trace_average' "

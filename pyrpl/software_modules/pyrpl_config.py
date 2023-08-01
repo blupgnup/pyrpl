@@ -3,15 +3,15 @@ logger = logging.getLogger(name=__name__)
 from ..attributes import SelectProperty, StringProperty, TextProperty
 from ..memory import MemoryTree
 from ..modules import Module
-from ..widgets.module_widgets.pyrpl_config_widget import PyrplConfigWidget
+#from ..widgets.module_widgets.pyrpl_config_widget import PyrplConfigWidget
 
 
 class PyrplConfig(Module):
     """
     This Module allows the Gui to configure the global settins, such as redpitaya and pyrpl
     """
-    _widget_class = PyrplConfigWidget
-    _gui_attributes = ["configfile", "module", "refresh", "save", "text"]
+    #_widget_class = PyrplConfigWidget
+    #_gui_attributes = ["configfile", "module", "refresh", "save", "text"]
 
     configfile = StringProperty()
 

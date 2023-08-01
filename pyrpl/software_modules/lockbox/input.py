@@ -4,7 +4,7 @@ import numpy as np
 import logging
 from ...attributes import SelectProperty, FloatProperty, FrequencyProperty, \
     PhaseProperty, FilterProperty, FrequencyRegister, ProxyProperty
-from ...widgets.module_widgets import LockboxInputWidget
+#from ...widgets.module_widgets import LockboxInputWidget
 from ...hardware_modules.dsp import DSP_INPUTS, InputSelectProperty, all_inputs
 from ...pyrpl_utils import time, recursive_getattr
 from ...module_attributes import ModuleProperty
@@ -232,7 +232,7 @@ class InputSignal(Signal):
     """
     _setup_attributes = ["input_signal"]
     _gui_attributes = ["input_signal"]
-    _widget_class = LockboxInputWidget
+    #_widget_class = LockboxInputWidget
     plot_range = np.linspace(-5, 5, 200)  # range of setpoint values over which to plot signal
 
     input_signal = InputSelectProperty(call_setup=True,

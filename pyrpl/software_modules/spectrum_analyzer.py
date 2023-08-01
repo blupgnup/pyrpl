@@ -108,7 +108,7 @@ from ..module_attributes import *
 from ..hardware_modules import Scope
 from ..hardware_modules.dsp import all_inputs, InputSelectProperty
 from ..acquisition_module import AcquisitionModule
-from ..widgets.module_widgets import SpecAnWidget
+#from ..widgets.module_widgets import SpecAnWidget
 
 import sys
 import scipy.signal as sig
@@ -217,22 +217,22 @@ class SpectrumAnalyzer(AcquisitionModule):
     A spectrum analyzer is composed of an IQ demodulator, followed by a scope.
     The spectrum analyzer connections are made upon calling the function setup.
     """
-    _widget_class = SpecAnWidget
-    _gui_attributes = ["input",
-                       "center",
-                       "baseband",
-                       "span",
-                       "rbw",
-                       #"points",
-                       "window",
-                       "acbandwidth",
-                       "display_unit",
-                       "display_input1_baseband",
-                       "display_input2_baseband",
-                       "input1_baseband",
-                       "input2_baseband",
-                       "display_cross_amplitude",
-                       ]#"display_cross_phase"]
+    #_widget_class = SpecAnWidget
+    # _gui_attributes = ["input",
+    #                    "center",
+    #                    "baseband",
+    #                    "span",
+    #                    "rbw",
+    #                    #"points",
+    #                    "window",
+    #                    "acbandwidth",
+    #                    "display_unit",
+    #                    "display_input1_baseband",
+    #                    "display_input2_baseband",
+    #                    "input1_baseband",
+    #                    "input2_baseband",
+    #                    "display_cross_amplitude",
+    #                    ]#"display_cross_phase"]
     _setup_attributes =["input",
                        "center",
                        "baseband",

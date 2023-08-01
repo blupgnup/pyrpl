@@ -197,7 +197,7 @@ import numpy as np
 from ..attributes import BoolRegister, FloatRegister, SelectRegister, \
     IntRegister, PhaseRegister, FrequencyRegister, FloatProperty, \
     FilterRegister, FilterProperty, GainRegister
-from ..widgets.module_widgets import IqWidget
+#from ..widgets.module_widgets import IqWidget
 from ..pyrpl_utils import sorted_dict
 
 from . import FilterModule
@@ -239,7 +239,7 @@ class Iq(FilterModule):
     A modulator/demodulator module.
 
     """
-    _widget_class = IqWidget
+    #_widget_class = IqWidget
     _setup_attributes = ["input",
                          "acbandwidth",
                          "frequency",

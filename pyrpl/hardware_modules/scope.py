@@ -128,7 +128,7 @@ from ..pyrpl_utils import sorted_dict
 from ..attributes import *
 from ..modules import HardwareModule
 from ..pyrpl_utils import time
-from ..widgets.module_widgets import ScopeWidget
+#from ..widgets.module_widgets import ScopeWidget
 
 logger = logging.getLogger(name=__name__)
 
@@ -206,7 +206,7 @@ class Scope(HardwareModule, AcquisitionModule):
     MIN_DELAY_CONTINUOUS_ROLLING_MS = 20
     addr_base = 0x40100000
     name = 'scope'
-    _widget_class = ScopeWidget
+    #_widget_class = ScopeWidget
     # run = ModuleProperty(ScopeAcquisitionManager)
     _gui_attributes = ["input1",
                        "input2",

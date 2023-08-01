@@ -4,7 +4,7 @@ from ..attributes import SelectProperty, StringProperty, TextProperty, \
     CurveProperty, CurveSelectProperty, CurveSelectListProperty
 from ..memory import MemoryTree
 from ..modules import Module
-from ..widgets.module_widgets.curve_viewer_widget import CurveViewerWidget
+#from ..widgets.module_widgets.curve_viewer_widget import CurveViewerWidget
 from ..curvedb import CurveDB
 
 
@@ -19,9 +19,9 @@ class CurveViewer(Module):
     """
     This Module allows to browse through curves that were taken with pyrpl
     """
-    _widget_class = CurveViewerWidget
-    _gui_attributes = ["curve_name", "pk", "curve", "params", "save_params",
-                       "delete_curve", "refresh_curve_list"]
+    #_widget_class = CurveViewerWidget
+    #gui_attributes = ["curve_name", "pk", "curve", "params", "save_params",
+    #                   "delete_curve", "refresh_curve_list"]
     pk = CurveSelectListProperty(doc="the pk of the currently viewed curve",
                                  call_setup=True)
     curve = CurveProperty(default=None, show_childs=True)
