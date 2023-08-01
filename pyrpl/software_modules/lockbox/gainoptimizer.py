@@ -1,4 +1,4 @@
-from signal import Timer
+from threading import Timer
 from pyrpl.software_modules.lockbox import *
 from pyrpl.async_utils import sleep_async
 

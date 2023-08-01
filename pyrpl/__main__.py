@@ -6,6 +6,7 @@ a Pyrpl instance with the config file
 "config_file_name"
 """
 import sys
+import threading
 try:
     from pyrpl import Pyrpl, APP, help_message
 except:
@@ -29,13 +30,13 @@ if __name__ == '__main__':
                 kwargs["config"] = k
         else:
             kwargs[k] = v
-    #APP = QtWidgets.QApplication.instance()
-    #if APP is None:
-    #    APP = QtWidgets.QApplication(sys.argv)
+    APP = threading.main_thread()
+    if APP.is_alive() == False:
+        print("Main thread did not start")
 
     if '--help' in kwargs:
         print(help_message)
     else:
         print("Calling Pyrpl(**%s)"%str(kwargs))
         PYRPL = Pyrpl(**kwargs)
-        APP.exec_()
+        APP.start()
