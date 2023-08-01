@@ -147,9 +147,9 @@ import logging
 import os
 import os.path as osp
 from shutil import copyfile
-from qtpy import QtCore, QtWidgets
+#from qtpy import QtCore, QtWidgets
 
-from .widgets.pyrpl_widget import PyrplWidget
+#from .widgets.pyrpl_widget import PyrplWidget
 from . import software_modules
 from .memory import MemoryTree
 from .redpitaya import RedPitaya
@@ -256,28 +256,15 @@ class Pyrpl(object):
         gui = 'gui' not in kwargs or kwargs['gui']
         # get config file if None is specified
         if config is None:
-            if gui:
-                self.logger.info("Please select or create a configuration "
-                                 "file in the file selector window!")
-                config = QtWidgets.QFileDialog.getSaveFileName(
-                                directory=user_config_dir,
-                                caption="Pick or create a configuration "
-                                        "file, or hit 'cancel' for no "
-                                        "file (all configuration will be "
-                                        "discarded after restarting)!",
-                                options=QtWidgets.QFileDialog.DontConfirmOverwrite,
-                                filter='*.yml')
-                if not isinstance(config, basestring):
-                    config = config[0]
-            else:  # command line
-                configfiles = [name for name in os.listdir(user_config_dir)
-                               if name.endswith('.yml')]
-                configfiles = [name[:-4] if name.endswith('.yml') else name
-                               for name in configfiles]
-                print("Existing config files are:")
-                for name in configfiles:
-                    print("    %s"%name)
-                config = raw_input('\nEnter an existing or new config file name: ')
+            # Removed gui support, command line:
+            configfiles = [name for name in os.listdir(user_config_dir)
+                            if name.endswith('.yml')]
+            configfiles = [name[:-4] if name.endswith('.yml') else name
+                            for name in configfiles]
+            print("Existing config files are:")
+            for name in configfiles:
+                print("    %s"%name)
+            config = raw_input('\nEnter an existing or new config file name: ')
         if config is None or config == "" or config.endswith('/.yml'):
             config = None
         # configuration is retrieved from config file
@@ -338,19 +325,22 @@ class Pyrpl(object):
                 #     raise e
         # make the gui if applicable
         if self.c.redpitaya.gui:
-            self.show_gui()
+            #self.show_gui()
+            pass # Removed gui support
 
     def show_gui(self):
-        if len(self.widgets) == 0:
-            widget = self._create_widget()
-            widget.show()
-        else:
-            for w in self.widgets:
-                w.show()
+        # if len(self.widgets) == 0:
+        #     widget = self._create_widget()
+        #     widget.show()
+        # else:
+        #     for w in self.widgets:
+        #         w.show()
+        pass # Removed gui support
 
     def hide_gui(self):
-        for w in self.widgets:
-            w.hide()
+        # for w in self.widgets:
+        #     w.hide()
+        pass # Removed gui support
 
     def load_software_modules(self):
         """
@@ -396,13 +386,13 @@ class Pyrpl(object):
     def modules(self):
         return self.hardware_modules + self.software_modules
 
-    def _create_widget(self):
-        """
-        Creates the top-level widget
-        """
-        widget = PyrplWidget(self)
-        self.widgets.append(widget)
-        return widget
+    # def _create_widget(self):
+    #     """
+    #     Creates the top-level widget
+    #     """
+    #     widget = PyrplWidget(self)
+    #     self.widgets.append(widget)
+    #     return widget
 
     def _clear(self):
         """
