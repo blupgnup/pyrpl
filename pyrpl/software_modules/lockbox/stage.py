@@ -4,16 +4,16 @@ from ...attributes import SelectProperty, FloatProperty, BoolProperty, \
     StringProperty
 from ...module_attributes import *
 from ...hardware_modules import InputSelectProperty
-from ...widgets.module_widgets import ReducedModuleWidget, \
-    LockboxSequenceWidget, LockboxStageWidget, StageOutputWidget
-from qtpy import QtCore
+#from ...widgets.module_widgets import ReducedModuleWidget, \
+#    LockboxSequenceWidget, LockboxStageWidget, StageOutputWidget
+#from qtpy import QtCore
 from collections import OrderedDict
 from pyrpl.async_utils import sleep_async, ensure_future, wait
 
-class StageSignalLauncher(SignalLauncher):
-    stage_created = QtCore.Signal(list)
-    stage_deleted = QtCore.Signal(list)
-    #stage_renamed = QtCore.Signal()
+#class StageSignalLauncher(SignalLauncher):
+#    stage_created = QtCore.Signal(list)
+#    stage_deleted = QtCore.Signal(list)
+#    #stage_renamed = QtCore.Signal()
 
 
 class StageOutput(LockboxModule):
@@ -21,7 +21,7 @@ class StageOutput(LockboxModule):
                          'reset_offset',
                          'offset']
     _gui_attributes = _setup_attributes
-    _widget_class = StageOutputWidget
+    #_widget_class = StageOutputWidget
     lock_on = BoolIgnoreProperty(default=False, call_setup=True)
     reset_offset = BoolProperty(default=False, call_setup=True)
     offset = FloatProperty(default=0, min=-1., max=1.,
@@ -51,8 +51,8 @@ class Stage(LockboxModule):
                        'gain_factor',
                        'function_call']
     _setup_attributes = _gui_attributes + ['outputs']
-    _widget_class = LockboxStageWidget
-    _signal_launcher = StageSignalLauncher
+    #_widget_class = LockboxStageWidget
+    #_signal_launcher = StageSignalLauncher
 
     input = StageInputSelectProperty(ignore_errors=True,
                                      options=lambda stage: stage.lockbox.inputs.keys(),
@@ -86,14 +86,14 @@ class Stage(LockboxModule):
         super(Stage, self).__init__(parent, name=name)
         for output in self.lockbox.outputs:
             self.outputs[output.name] = StageOutput
-        self._signal_launcher.stage_created.emit([self])
-        self.parent._signal_launcher.stage_created.emit([self])
+        #self._signal_launcher.stage_created.emit([self])
+        #self.parent._signal_launcher.stage_created.emit([self])
         self.lockbox._logger.debug("Stage %s initialized"%self.name)
 
     def _clear(self):
         self.lockbox._logger.debug("Deleting stage %s"%self.name)
-        self._signal_launcher.stage_deleted.emit([self])
-        self.parent._signal_launcher.stage_deleted.emit([self])
+        #self._signal_launcher.stage_deleted.emit([self])
+        #self.parent._signal_launcher.stage_deleted.emit([self])
         super(Stage, self)._clear()
 
     @property

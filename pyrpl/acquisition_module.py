@@ -101,23 +101,23 @@ class RunningStateProperty(SelectProperty):
             #  to save this right away
 
 
-class SignalLauncherAcquisitionModule(SignalLauncher):
-    """ class that takes care of emitting signals to update all possible
-    displays"""
+# class SignalLauncherAcquisitionModule(SignalLauncher):
+#     """ class that takes care of emitting signals to update all possible
+#     displays"""
 
-    display_curve = QtCore.Signal(list)  # This signal is emitted when
-    # curves need to be displayed the argument is [array(times),
-    # array(curve1), array(curve2)] or [times, None, array(curve2)]
-    autoscale_x = QtCore.Signal()
+#     display_curve = QtCore.Signal(list)  # This signal is emitted when
+#     # curves need to be displayed the argument is [array(times),
+#     # array(curve1), array(curve2)] or [times, None, array(curve2)]
+#     autoscale_x = QtCore.Signal()
 
-    # For now, the following signals are only implemented with NA.
-    update_point = QtCore.Signal(int)  #  used in NA only
-    scan_finished = QtCore.Signal()  #  used in NA only
-    clear_curve = QtCore.Signal()  #  NA only
-    x_log_toggled = QtCore.Signal() #  logscale changed
+#     # For now, the following signals are only implemented with NA.
+#     update_point = QtCore.Signal(int)  #  used in NA only
+#     scan_finished = QtCore.Signal()  #  used in NA only
+#     clear_curve = QtCore.Signal()  #  NA only
+#     x_log_toggled = QtCore.Signal() #  logscale changed
 
-    # Following signal only implemented in spec an
-    unit_changed = QtCore.Signal()
+#     # Following signal only implemented in spec an
+#     unit_changed = QtCore.Signal()
 
 
 class AcquisitionModule(Module):
@@ -163,11 +163,11 @@ class AcquisitionModule(Module):
     #  boolean setup_attribute 'run_continuous'.
 
 
-    _gui_attributes = ['trace_average', 'curve_name']
+    #_gui_attributes = ['trace_average', 'curve_name']
 
     _setup_on_load = True #  acquisition_modules need to be setup() once
     # they are loaded
-    _signal_launcher = SignalLauncherAcquisitionModule
+    #_signal_launcher = SignalLauncherAcquisitionModule
     _setup_attributes = ['trace_average',
                          'curve_name',
                          'run_continuous']
@@ -216,7 +216,7 @@ class AcquisitionModule(Module):
 
     def _emit_signal_by_name(self, signal_name, *args, **kwds):
         """Let's the module's signal_launcher emit signal name"""
-        self._signal_launcher.emit_signal_by_name(signal_name, *args, **kwds)
+        #self._signal_launcher.emit_signal_by_name(signal_name, *args, **kwds)
 
     async def _trace_async(self, min_delay_ms):
         """

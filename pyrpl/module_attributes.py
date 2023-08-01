@@ -82,7 +82,7 @@ class ModuleList(Module, list):
                                  'next': property(fget=element_next),
                                  '__init__': element_init
                                 })
-        self._signal_launcher = self.element_cls._signal_launcher
+        #self._signal_launcher = self.element_cls._signal_launcher #
         super(ModuleList, self).__init__(parent, name=name)
         # set to default setting
         self.extend(default)

@@ -119,7 +119,7 @@ class TestProxyProperty(object):
 
         # connect slots to signals of this module
         s = SignalReceiver()
-        m._signal_launcher.connect_widget(s)
+        #m._signal_launcher.connect_widget(s)
 
         # setup and perform some action
         s.arrived_signal = False

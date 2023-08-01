@@ -319,7 +319,7 @@ class InputSignal(Signal):
                           self.calibration_data.mean,
                           self.calibration_data.rms)
         # update graph in lockbox
-        self.lockbox._signal_launcher.input_calibrated.emit([self])
+        #self.lockbox._signal_launcher.input_calibrated.emit([self])
         # save data if desired
         if autosave:
             params = self.calibration_data.setup_attributes

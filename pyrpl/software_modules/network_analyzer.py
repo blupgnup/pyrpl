@@ -67,7 +67,7 @@ class RbwAttribute(FilterProperty):
 class LogScaleProperty(BoolProperty):
     def set_value(self, module, val):
         super(LogScaleProperty, self).set_value(module, val)
-        module._signal_launcher.x_log_toggled.emit()
+        #module._signal_launcher.x_log_toggled.emit()
 
 
 class NetworkAnalyzer(AcquisitionModule, SignalModule):

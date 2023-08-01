@@ -4,16 +4,16 @@ from ...attributes import IntRegister, BoolRegister, ComplexProperty, \
     FloatProperty, StringProperty, CurveSelectProperty, \
     GainRegister, ConstantIntRegister, FloatAttributeListProperty, \
     ComplexAttributeListProperty, BoolProperty, SelectProperty
-from ...widgets.module_widgets import IirWidget
-from ...modules import SignalLauncher
+#from ...widgets.module_widgets import IirWidget
+#from ...modules import SignalLauncher
 
 import numpy as np
-from qtpy import QtCore
+#from qtpy import QtCore
 from scipy.signal import freqz
 
 
-class SignalLauncherIir(SignalLauncher):
-    update_plot = QtCore.Signal()
+# class SignalLauncherIir(SignalLauncher):
+#     update_plot = QtCore.Signal()
 
 
 class OverflowProperty(StringProperty):
@@ -37,7 +37,8 @@ class OverflowProperty(StringProperty):
 
     def set_value(self, obj, value):
         # this is a read-only property, but it has to be read to reset it
-        self.launch_signal(obj, value)
+        #self.launch_signal(obj, value)
+        pass
 
 
 # The properties zeros/poles are the master properties to store zeros or
@@ -134,7 +135,7 @@ class IirFloatListProperty(FloatAttributeListProperty):
                     setattr(module, '_selected_index', index)
                 finally:
                     setattr(module, '_selecting', False)
-                module._signal_launcher.update_plot.emit()
+                #module._signal_launcher.update_plot.emit()
         super(IirFloatListProperty, self).list_changed(module, operation, index, value=value)
 
 
@@ -175,10 +176,10 @@ class TfTypeProperty(SelectProperty):
     def value_updated(self, module, value=None, appendix=[]):
         super(TfTypeProperty, self).value_updated(module,
                                                   value=value)
-        module._signal_launcher.update_plot.emit()
+        #module._signal_launcher.update_plot.emit()
 
 class IIR(FilterModule):
-    _signal_launcher = SignalLauncherIir
+    #_signal_launcher = SignalLauncherIir
     iirfilter = None  # will be set by setup()
     _minloops = 3  # minimum number of loops for correct behaviour
     _maxloops = 1023
@@ -201,7 +202,7 @@ class IIR(FilterModule):
 
     _IIRSTAGES = ConstantIntRegister(0x208)
 
-    _widget_class = IirWidget
+    #_widget_class = IirWidget
 
     _setup_attributes = ["input",
                          "loops",
@@ -457,7 +458,7 @@ class IIR(FilterModule):
                 self.input = former_input
         self._logger.info("NA acquisition finished.")
         # re-plot
-        self._signal_launcher.update_plot.emit()
+        #self._signal_launcher.update_plot.emit()
         return self._measurement_data
 
     def _setup_unity(self):
@@ -552,7 +553,7 @@ class IIR(FilterModule):
             else:
                 self._logger.debug("IIR Overflow pattern: %s",
                                    bin(self.overflow_bitfield))
-            self._signal_launcher.update_plot.emit()
+            #self._signal_launcher.update_plot.emit()
             # update curve name
             try: self.data_curve_name = self._data_curve_object.name
             except AttributeError: pass

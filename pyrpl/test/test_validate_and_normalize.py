@@ -7,7 +7,6 @@ from pyrpl.software_modules.module_managers import *
 from pyrpl.hardware_modules import *
 from pyrpl.modules import *
 from pyrpl import APP
-from qtpy import QtCore
 from .test_load_save import scramble_values
 
 
@@ -40,10 +39,10 @@ class TestValidateAndNormalize(TestPyrpl):
             # add an entry to results
             self.results.append(("%s.%s" % (mod.name, attr_name), list_value[0], getattr(mod, attr_name)))
 
-        mod._signal_launcher.update_attribute_by_name.connect(check_fpga_value_equals_signal_value)
+        #mod._signal_launcher.update_attribute_by_name.connect(check_fpga_value_equals_signal_value)
         attr_names, attr_vals = scramble_values(mod)
         APP.processEvents()
-        mod._signal_launcher.update_attribute_by_name.disconnect(check_fpga_value_equals_signal_value)
+        #mod._signal_launcher.update_attribute_by_name.disconnect(check_fpga_value_equals_signal_value)
         # check that enough results have been received
         assert len(attr_names) <= len(self.results), \
             "%d attr_names > %d results"%(len(attr_names), len(self.results))
