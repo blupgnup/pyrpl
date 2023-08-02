@@ -6,11 +6,10 @@ import pyqtgraph as pg
 from ..modules import Module
 from ..async_utils import sleep_async, wait, ensure_future #MainThreadTimer
 from ..pyrpl_utils import time
-from qtpy import QtCore
+from threading import Timer
 
 
 class Loop(Module):
-    timer = QtCore.QTimer()
     def __init__(self, parent, name='loop', interval=1.0,
                  autostart=True,
                  loop_function=None, setup_function=None,
@@ -32,7 +31,7 @@ class Loop(Module):
         # interval in seconds
         self.interval = interval
 
-        self.timer.timeout.connect(self.main_loop)
+        self.timer = Timer(self.interval, self.main_loop)
         self.n = 0  # counter for the number of loops
         self.time  # initialize start time in internal time format
         # call custom initialization (excluded above)
@@ -55,15 +54,15 @@ class Loop(Module):
 
     @property
     def interval(self):
-        return float(self.timer.interval())/1000.0
+        return float(self.interval) # To be checked, we cannot retrieve timer interval
 
     @interval.setter
     def interval(self, val):
-        self.timer.setInterval(val*1000.0)
+        self.interval # To be checked, we cannot update timer interval
 
     def _clear(self):
         self._ended = True
-        self.timer.stop()
+        self.timer.cancel()
         try:
             self.teardown_loop()
         except TypeError:

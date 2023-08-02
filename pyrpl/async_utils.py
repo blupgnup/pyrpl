@@ -34,34 +34,17 @@ the background loop
 
 """
 import logging
-from qtpy import QtCore, QtWidgets
 import asyncio
 from asyncio import Future, iscoroutine
-import quamash
 import sys
+import threading
 
 
 logger = logging.getLogger(name=__name__)
 
-# enable ipython QtGui support if needed
-try:
-    from IPython import get_ipython
-    IPYTHON = get_ipython()
-    IPYTHON.magic("gui qt")
-except BaseException as e:
-    logger.debug('Could not enable IPython gui support: %s.' % e)
+APP = threading.main_thread()
 
-APP = QtWidgets.QApplication.instance()
-if APP is None:
-    # logger.debug('Creating new QApplication instance "pyrpl"')
-    APP = QtWidgets.QApplication(['pyrpl'])
-
-
-LOOP = quamash.QEventLoop() # Since tasks scheduled in this loop seem to
-# fall in the standard QEventLoop, and we never explicitly ask to run this
-# loop, it might seem useless to send all tasks to LOOP, however, a task
-# scheduled in the default loop seem to never get executed with IPython
-# kernel integration.
+LOOP = asyncio.new_event_loop()
 
 async def sleep_async(time_s):
     """
@@ -98,7 +81,7 @@ def wait(future, timeout=None):
     #    LOOP.run_until_complete(new_future)
     #    done, pending = new_future.result()
     #else:
-    loop = QtCore.QEventLoop()
+    loop = asyncio.get_event_loop()
     def quit(*args):
         loop.quit()
     new_future.add_done_callback(quit)
