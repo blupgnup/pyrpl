@@ -16,7 +16,6 @@ file.
 """
 
 from .attributes import BaseAttribute, ModuleAttribute
-from .widgets.module_widgets import ModuleWidget
 from .curvedb import CurveDB
 from .pyrpl_utils import unique_list, DuplicateFilter
 
@@ -27,67 +26,9 @@ import string
 import numpy as np
 from six import with_metaclass
 from collections import OrderedDict
-from qtpy import QtCore
 
 
 
-class SignalLauncher(QtCore.QObject):
-    """
-    Object that is used to handle signal the emission for a :obj:`Module`.
-
-    A QObject that is connected to the widgets to update their value when
-    attributes of a module change. Any timers needed to implement the module
-    functionality shoud be implemented here as well.
-    """
-    update_attribute_by_name = QtCore.Signal(str, list)
-    # The name of the property that has changed, the list is [new_value],
-    # the new_value of the attribute
-    change_options = QtCore.Signal(str, list) # name of the
-    # SelectProperty,  list of new options
-    refresh_filter_options = QtCore.Signal(str) # name of the
-    # FilterProperty,  new options are contained in self.valid_frequencies()
-    change_ownership = QtCore.Signal() # The owner of the module  has
-    # changed
-
-    def __init__(self, module):
-        super(SignalLauncher, self).__init__()
-        self.module = module
-
-    def emit_signal_by_name(self, name, *args, **kwds):
-        """Emits signal "name" with the specfified args and kwds."""
-        signal = getattr(self, name)
-        signal.emit(*args, **kwds)
-
-    def connect_widget(self, widget):
-        """
-        Establishes all connections between the module and the widget by name.
-        """
-        #self.update_attribute_by_name.connect(widget.update_attribute_by_name)
-        for key in dir(self.__class__):
-            val = getattr(self, key)
-
-            try: #for qtpy > 1.9.0
-                signal = QtCore.SignalInstance
-            except AttributeError: #for qtpy <= 1.9.0
-                signal = QtCore.pyqtBoundSignal
-            if isinstance(val, signal, ) and hasattr(widget,
-                                                    key):
-                val.connect(getattr(widget, key))
-
-
-    def _clear(self):
-        """ Destroys the object by disconnecting all signals and by killing all timers"""
-        for key in dir(self.__class__):
-            val = getattr(self, key)
-            try: #for qtpy > 1.9.0
-                signal = QtCore.SignalInstance
-            except AttributeError: #for qtpy <= 1.9.0
-                signal = QtCore.pyqtBoundSignal
-            if isinstance(val, signal):
-                try:
-                    val.disconnect()
-                except TypeError:  # occurs if signal is not connected to anything
-                    pass
 
 
 class ModuleMetaClass(type):
@@ -138,7 +79,6 @@ class ModuleMetaClass(type):
             try: _module_attributes += base._module_attributes
             except AttributeError: pass
         _setup_attributes += self._setup_attributes
-        _gui_attributes += self._gui_attributes
         # 1b. make a list of _module_attributes and add _module_attributes to _setup_attributes
         for name, attr in self.__dict__.items():
             if isinstance(attr, ModuleAttribute):
@@ -337,11 +277,9 @@ class Module(with_metaclass(ModuleMetaClass, object)):
     """
 
     # Change this to provide a custom graphical class
-    _widget_class = ModuleWidget
 
     # the class for the SignalLauncher to be used
     # a QOBject used to communicate with the widget
-    _signal_launcher = SignalLauncher
 
     # attributes listed here will be saved in the config file everytime they
     # are updated.
@@ -349,7 +287,6 @@ class Module(with_metaclass(ModuleMetaClass, object)):
 
     # class inheriting from ModuleWidget can
     # automatically generate gui from a list of attributes
-    _gui_attributes = []
 
     # This flag is used to desactivate callback during setup
     _setup_ongoing = False
@@ -379,8 +316,6 @@ class Module(with_metaclass(ModuleMetaClass, object)):
         # see http://stackoverflow.com/questions/1301346/what-is-the-meaning-of-a-single-and-a-double-underscore-before-an-object-name
         self._logger = logging.getLogger(name=__name__)
         self._logger.addFilter(DuplicateFilter())
-        # create the signal launcher object from its class
-        self._signal_launcher = self._signal_launcher(self)
         self.parent = parent
         # disable autosave during initialization
         self._autosave_active = False
@@ -687,7 +622,6 @@ class Module(with_metaclass(ModuleMetaClass, object)):
             # could be solved by making a copy of the dict somewhere in
             # memory.py, but on the other hand we are not supposed to use
             # anything but the public API of memory.py
-        self._signal_launcher.change_ownership.emit()
 
     def _ownership_changed(self, old, new):
         pass
@@ -716,7 +650,6 @@ class Module(with_metaclass(ModuleMetaClass, object)):
         """
         Kill timers and free resources for this module and all submodules.
         """
-        self._signal_launcher._clear()
         for sub in self._modules:
             getattr(self, sub)._clear()
 

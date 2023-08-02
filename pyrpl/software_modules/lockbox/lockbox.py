@@ -1,17 +1,13 @@
 from __future__ import division
 from collections import OrderedDict
-from qtpy import QtCore
 import logging
-from ...modules import SignalLauncher
 from ...module_attributes import ModuleListProperty
 from .input import *
 from .output import *
-from ...widgets.module_widgets import LockboxWidget
 from ...pyrpl_utils import all_subclasses
 from .stage import Stage
 from . import LockboxModule, LockboxModuleDictProperty
 from . import LockboxLoop, LockboxPlotLoop
-from ...widgets.module_widgets.lockbox_widget import LockboxSequenceWidget
 from pyrpl.async_utils import wait, sleep_async, sleep, ensure_future, Event
 
 
@@ -54,44 +50,15 @@ class StateSelectProperty(SelectProperty):
         if not val in ["lock_on", "sweep", "unlock"]:
             obj._monitor_lock_status_task = ensure_future(
                 obj._monitor_lock_status_async())
-        obj._signal_launcher.state_changed.emit([val])
 
 
-class SignalLauncherLockbox(SignalLauncher):
-    """
-    A SignalLauncher for the lockbox
-    """
-    output_created = QtCore.Signal(list)
-    output_deleted = QtCore.Signal(list)
-    output_renamed = QtCore.Signal()
-    stage_created = QtCore.Signal(list)
-    stage_deleted = QtCore.Signal(list)
-    stage_renamed = QtCore.Signal()
-    delete_widget = QtCore.Signal()
-    state_changed = QtCore.Signal(list)
-    add_input = QtCore.Signal(list)
-    input_calibrated = QtCore.Signal(list)
-    remove_input = QtCore.Signal(list)
-    update_transfer_function = QtCore.Signal(list)
-    update_lockstatus = QtCore.Signal(list)
-    p_gain_rounded = QtCore.Signal(list)
-    p_gain_ok = QtCore.Signal(list)
-    i_gain_rounded = QtCore.Signal(list)
-    i_gain_ok = QtCore.Signal(list)
 
 class Lockbox(LockboxModule):
     """
     A Module that allows to perform feedback on systems that are well described
     by a physical model.
     """
-    _widget_class = LockboxWidget
-    _signal_launcher = SignalLauncherLockbox
-    _gui_attributes = ["classname",
-                       "default_sweep_output",
-                       "auto_lock",
-                       "is_locked_threshold",
-                       "setpoint_unit"]
-    _setup_attributes = _gui_attributes + [#"auto_lock_interval",
+    _setup_attributes =                   [#"auto_lock_interval",
                                            "lockstatus_interval",]
                                            #"_auto_lock_timeout"]
 
@@ -188,7 +155,6 @@ class Lockbox(LockboxModule):
 
     # Sequence is a list of stage modules. By default the first stage is created
     sequence = ModuleListProperty(Stage, default=[{}])
-    sequence._widget_class = LockboxSequenceWidget
 
     # current state of the lockbox
     current_state = StateSelectProperty(options=
@@ -299,7 +265,6 @@ class Lockbox(LockboxModule):
                 if self.auto_lock:
                     self.lock_async()
             self.lock_status = new_status
-            self._signal_launcher.update_lockstatus.emit([new_status])
             # optionally, call logging functionality implemented derived classes here...
             try: self.log_lockstatus()
             except AttributeError: pass
@@ -426,8 +391,6 @@ class Lockbox(LockboxModule):
                           self.classname)
         # save names such that lockbox object can be deleted
         pyrpl, name = self.pyrpl, self.name
-        # launch signal for widget deletion
-        self._signal_launcher.delete_widget.emit()
         # delete former lockbox (free its resources)
         self._clear()
         # Make sure that the former lockbox won't mess up with pyrpl

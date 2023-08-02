@@ -139,12 +139,9 @@ do what they are supposed to.
 """
 
 import numpy as np
-from qtpy import QtCore
 from ..attributes import FloatProperty, BoolRegister, FloatRegister, GainRegister, SelectRegister
 from .dsp import PauseRegister
-from ..modules import SignalLauncher
 from . import FilterModule
-from ..widgets.module_widgets import PidWidget
 from ..pyrpl_utils import sorted_dict
 
 class IValAttribute(FloatProperty):
@@ -164,24 +161,7 @@ class IValAttribute(FloatProperty):
             int(round(value * 2 ** 13)), bitlength=16))
 
 
-class SignalLauncherPid(SignalLauncher):
-    update_ival = QtCore.Signal()
-    # the widget decides at the other hand if it has to be done or not
-    # depending on the visibility
-    def __init__(self, module):
-        super(SignalLauncherPid, self).__init__(module)
-        self.timer_ival = QtCore.QTimer()
-        self.timer_ival.setInterval(1000)  # max. refresh rate: 1 Hz
-        self.timer_ival.timeout.connect(self.update_ival)
-        self.timer_ival.setSingleShot(False)
-        self.timer_ival.start()
 
-    def _clear(self):
-        """
-        kill all timers
-        """
-        self.timer_ival.stop()
-        super(SignalLauncherPid, self)._clear()
 
 
 class Pid(FilterModule):
@@ -221,8 +201,6 @@ class Pid(FilterModule):
         >>> print(pid.ival)
         0.763324
     """
-    _widget_class = PidWidget
-    _signal_launcher = SignalLauncherPid
     _setup_attributes = ["input",
                          "output_direct",
                          "setpoint",

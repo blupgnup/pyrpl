@@ -22,7 +22,6 @@ class AdditionalFilterAttribute(FilterProperty):
 
     def set_value(self, obj, value):
         obj.pid.inputfilter = value
-        obj.lockbox._signal_launcher.update_transfer_function.emit([obj])
 
 
 class OutputSignal(Signal):
@@ -249,14 +248,6 @@ class OutputSignal(Signal):
             i_pid = self.i / external_loop_gain * gain_factor
             self.pid.p = p_pid
             self.pid.i = i_pid
-            if np.abs(p_pid)<self.pid.__class__.p.increment or p_pid>self.pid.__class__.p.max or p_pid<self.pid.__class__.p.min:
-                self.lockbox._signal_launcher.p_gain_rounded.emit([self])
-            else:
-                self.lockbox._signal_launcher.p_gain_ok.emit([self])
-            if np.abs(i_pid) < self.pid.__class__.i.increment or i_pid > self.pid.__class__.i.max or i_pid < self.pid.__class__.i.min:
-                self.lockbox._signal_launcher.i_gain_rounded.emit([self])
-            else:
-                self.lockbox._signal_launcher.i_gain_ok.emit([self])
 
 
     def _setup_offset(self, offset):
@@ -285,8 +276,6 @@ class OutputSignal(Signal):
             self.unlock()
         elif self.current_state == 'lock':
             self.lock()
-        # plot current transfer function
-        self.lockbox._signal_launcher.update_transfer_function.emit([self])
 
 
     ##############################

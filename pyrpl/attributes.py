@@ -128,7 +128,6 @@ class BaseProperty(BaseAttribute):
         """
         if value is None:
             value = self.get_value(module)
-        self.launch_signal(module, value, appendix=appendix)
         if module._autosave_active:  # (for module, when module is slaved, don't save attributes)
             if self.name in module._setup_attributes:
                 self.save_attribute(module, value)
@@ -147,18 +146,6 @@ class BaseProperty(BaseAttribute):
             return self
         return self.get_value(instance)
 
-    def launch_signal(self, module, new_value, appendix=[]):
-        """
-        Updates the widget and other subscribers with the module's value.
-        """
-        try:
-            module._signal_launcher.update_attribute_by_name.emit(
-                self.name,
-                [new_value]+appendix)
-        except AttributeError as e:  # occurs if nothing is connected (TODO:
-            # remove this)
-            module._logger.error("Error in launch_signal of %s: %s",
-                                 module.name, e)
 
     def save_attribute(self, module, value):
         """
@@ -743,7 +730,7 @@ class FilterProperty(BaseProperty):
                                   "must implement the following function")
 
     def refresh_options(self, module):
-        module._signal_launcher.refresh_filter_options.emit(self.name)
+        pass
 
 
 class FilterRegister(BaseRegister, FilterProperty):
@@ -1048,7 +1035,6 @@ class BasePropertyListProperty(BaseProperty):
             # value can be None in this case, as it is not used
             if value is None:
                 value = self.get_value(module)
-            self.launch_signal(module, value, appendix=[operation, index, value])
         else:
             # launches signal and calls setup()
             self.value_updated(module, appendix=[operation, index, value])
@@ -1207,8 +1193,6 @@ class SelectProperty(BaseProperty):
                 setattr(instance, '_' + self.name + '_lastoptions', options)
                 # save the keys for the user convenience
                 setattr(instance, self.name + '_options', list(options.keys()))
-                instance._signal_launcher.change_options.emit(self.name,
-                                                              list(options))
         # return the actual options
         return options
 
@@ -1394,38 +1378,6 @@ class ProxyProperty(BaseProperty):
             targetdescr = ""
         return super(ProxyProperty, self).__repr__() + targetdescr
 
-    def connect_signals(self, instance):
-        """ function that takes care of forwarding signals from target to
-        signal_launcher of proxy module """
-        if hasattr(instance, '_' + self.name + '_connected'):
-            return  # skip if connection has already been set up
-        else:
-            module = recursive_getattr(instance, self.path_to_target_module)
-
-            def forward_update_attribute_by_name(name, value):
-                """ forward the signal, but change attribute name """
-                if name == self.target_attribute:
-                    instance._signal_launcher.update_attribute_by_name.emit(
-                        self.name, [self._target_to_proxy(instance,
-                                                          value[0])])
-                    if self.call_setup:
-                        instance.setup()
-            module._signal_launcher.update_attribute_by_name.connect(
-                forward_update_attribute_by_name)
-
-            def forward_change_options(name, new_options):
-                """ forward the signal, but change attribute name """
-                if name == self.target_attribute:
-                    # update local list of options
-                    setattr(instance, self.name + '_options', new_options)
-                    # forward the signal
-                    instance._signal_launcher.change_options.emit(
-                        self.name, new_options)
-            module._signal_launcher.change_options.connect(
-                forward_change_options)
-
-            # remember that we are now connected
-            setattr(instance, '_' + self.name + '_connected', True)
 
     # def _create_widget(self, module, widget_name=None, **kwargs):
     #     target_module = recursive_getattr(module, self.path_to_target_module)
