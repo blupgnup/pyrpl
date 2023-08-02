@@ -625,6 +625,7 @@ class MemoryTree(MemoryBranch):
         else:
             # make sure saving will eventually occur by launching a timer
             if not self._savetimer.is_alive():
+                self._savetimer = Timer(self._loadsavedeadtime, self._write_to_file) # We need to recreate the Thread every time
                 self._savetimer.start()
 
     @property
