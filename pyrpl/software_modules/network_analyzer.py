@@ -514,13 +514,11 @@ class NetworkAnalyzer(AcquisitionModule, SignalModule):
                     self._time_first_point = now
                 self.data_x[self.current_point] = now - self._time_first_point
 
-            self._emit_signal_by_name("update_point", self.current_point)
 
             self.data_avg[self.current_point] = (self.data_avg[self.current_point]*(self.current_avg) \
                                  + y)/(self.current_avg + 1)
             self.current_point+=1
         self.current_avg = min(self.current_avg + 1, self.trace_average)
-        self._emit_signal_by_name("scan_finished")
         self.current_point = 0
         return self.data_avg
 

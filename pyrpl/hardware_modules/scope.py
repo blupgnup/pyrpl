@@ -596,7 +596,6 @@ class Scope(HardwareModule, AcquisitionModule):
             while(self.running_state=="running_continuous"):
                 await sleep_async(self.MIN_DELAY_CONTINUOUS_ROLLING_MS*0.001)
                 self.data_x, self.data_avg = self._get_rolling_curve()
-                self._emit_signal_by_name('display_curve', [self.data_x, self.data_avg])
 
     def _data_ready(self):
         """

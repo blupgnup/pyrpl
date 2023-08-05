@@ -121,7 +121,6 @@ import scipy.fftpack as fft
 class DisplayUnitProperty(SelectProperty):
     def set_value(self, obj, value):
         super(DisplayUnitProperty, self).set_value(obj, value)
-        obj._emit_signal_by_name('unit_changed')
 
 class CenterAttribute(FrequencyProperty):
     def get_value(self, instance):

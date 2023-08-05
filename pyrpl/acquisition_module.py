@@ -239,8 +239,6 @@ class AcquisitionModule(Module):
                 await self._resume_event.wait()
             self.data_avg = (self.data_avg * (self.current_avg-1) + \
                              await self._trace_async(0)) / self.current_avg
-            self._emit_signal_by_name('display_curve', [self.data_x,
-                                                        self.data_avg])
         self._running_state = 'stopped'
         self._free_up_resources()
         return self.data_avg
@@ -287,8 +285,6 @@ class AcquisitionModule(Module):
                              await self._trace_async(
                                  self.MIN_DELAY_CONTINUOUS_MS * 0.001)) / \
                             self.current_avg
-            self._emit_signal_by_name('display_curve', [self.data_x,
-                                                        self.data_avg])
 
     async def _continuous_async(self):
         """
