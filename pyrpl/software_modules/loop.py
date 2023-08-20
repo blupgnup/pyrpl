@@ -2,7 +2,6 @@
 Defines a number of Loop modules to be used to perform periodically a task
 """
 import numpy as np
-import pyqtgraph as pg
 from ..modules import Module
 from ..async_utils import sleep_async, wait, ensure_future #MainThreadTimer
 from ..pyrpl_utils import time
@@ -133,11 +132,8 @@ class PlotWindow(object):
 
     close() closes the plot"""
     def __init__(self, title="plotwindow"):
-        self.win = pg.GraphicsWindow(title=title)
-        self.pw = self.win.addPlot()
-        self.curves = {}
-        self.win.show()
-        self.plot_start_time = time()
+        print("Qt and PyQtGraph disabled, please provide alternative")
+        return False
 
     _defaultcolors = ['g', 'r', 'b', 'y', 'c', 'm', 'o', 'w']
 
