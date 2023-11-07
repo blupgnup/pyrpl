@@ -156,7 +156,7 @@ class PlotWindow(object):
         for color, value in kwargs.items():
             if value is not None:
                 if not color in self.curves:
-                    self.curves[color] = self.pw.plot(pen=color)
+                    self.curves[color] = 0;#self.pw.plot(pen=color)
                 curve = self.curves[color]
                 x, y = curve.getData()
                 if x is None or y is None:
@@ -166,7 +166,8 @@ class PlotWindow(object):
                 curve.setData(x, y)
 
     def close(self):
-        self.win.close()
+        i=42;
+        #self.win.close()
 
 
 class PlotLoop(Loop):
