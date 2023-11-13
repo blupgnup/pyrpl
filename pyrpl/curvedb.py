@@ -28,12 +28,15 @@
 # otherwise you can custimize here what is to be done to your data
 #
 import numpy as np
-import pandas as pd
+#import pandas as pd
 import os
 import logging
 import pickle as file_backend
 #import json as file_backend  # currently unable to store pandas
 
+class PandaException(Exception):
+    "Raised exception because be don't support pandas in Pyrpl-Light"
+    pass
 
 # optional override of CurveDB class with custom module, as defined in
 # ./pyrpl/config/global_config.yml
@@ -82,13 +85,13 @@ except:
             if len(args) == 0:
                 ser = (np.array([], dtype=np.float), np.array([], dtype=np.float))
             if len(args) == 1:
-                if isinstance(args[0], pd.Series):
-                    x, y = args[0].index.values, args[0].values
-                    ser = (x, y)
-                elif isinstance(args[0], (np.array, list, tuple)):
+                #if isinstance(args[0], pd.Series):
+                #    x, y = args[0].index.values, args[0].values
+                #    ser = (x, y)
+                if isinstance(args[0], (np.array, list, tuple)):
                     ser = args[0]
                 else:
-                    raise ValueError("cannot recognize argument %s as numpy.array or pandas.Series.", args[0])
+                    raise PandaException("cannot recognize argument %s as numpy.array and if you used pandas.Series, it is not yet supported by pyrpl-lite.", args[0])
             elif len(args) == 2:
                 x = np.array(args[0])
                 y = np.array(args[1])
@@ -109,7 +112,8 @@ except:
 
         def plot(self):
             x, y = self.data
-            pd.Series(y, index=x).plot()
+            raise PandaException("pandas is not supported un pyrl-lite (pd.Series(..).plot())");
+            #pd.Series(y, index=x).plot()
 
         # Implement the following methods if you want to save curves permanently
         @classmethod
@@ -127,9 +131,9 @@ except:
                     curve = CurveDB()
                     curve._pk, curve.params, data = file_backend.load(f)
                     curve.data = tuple([np.asarray(a) for a in data])
-                if isinstance(curve.data, pd.Series):  # for backwards compatibility
-                    x, y = curve.data.index.values, curve.data.values
-                    curve.data = (x, y)
+                #if isinstance(curve.data, pd.Series):  # for backwards compatibility
+                #    x, y = curve.data.index.values, curve.data.values
+                #    curve.data = (x, y)
                 return curve
 
         def save(self):
