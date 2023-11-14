@@ -41,7 +41,7 @@ requirements = ['scp',
                 'scipy',
                 'pyyaml',
                 #'ruamel.yaml' # temporarily disabled
-                'pandas',
+                #'pandas', pyrpl-lite disable pandas
                 'numpy>=1.9',
                 'paramiko>=2.0',
                 'nose>=1.0',
