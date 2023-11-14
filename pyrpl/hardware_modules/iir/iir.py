@@ -8,9 +8,6 @@ from ...attributes import IntRegister, BoolRegister, ComplexProperty, \
 import numpy as np
 from scipy.signal import freqz
 
-
-
-
 class OverflowProperty(StringProperty):
     def get_value(self, obj):
         value = obj.overflow_bitfield
@@ -813,8 +810,9 @@ class IIR(FilterModule):
                 z_all += z
                 tfs.append(z)
                 freqs_all.append(freqs)
-                labels.append(f"b0={b0:.5f}, b1={b1:.5f}, a1={a1:.5f}, " \
-                               f"a2={a2:.5f}")
+                labels.append("b0={:.5f}, b1={:.5f}, a1={:.5f}, a2={:.5f}"\
+                        .format(b0,b1,a1,a2))
+
                 if plot_experiment:
                     coeffs = np.zeros((5, 6))
                     coeffs[:, 2] = 0
@@ -845,9 +843,9 @@ class IIR(FilterModule):
 
     def _saturate(self, val, bits):
         if val > 2**bits - 1:
-            raise OverflowError(f"Overflox in saturate with {val} > {2**bits - 1}")
+            raise OverflowError("Overflox in saturate with {} > {}".format(val,2**bits - 1))
         if val < -2 ** bits:
-                raise OverflowError(f"Overflox in saturate with {val} < {-2**bits}")
+                raise OverflowError("Overflox in saturate with {} < {}".format(val,-2**bits))
         return val
 
     def format_coefs_verilog(self):
@@ -862,3 +860,4 @@ class IIR(FilterModule):
             n+=1
             print("iir_coefficients[", 2*n, "]<=", -a2, ";")
             n+=1
+
